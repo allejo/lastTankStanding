@@ -83,7 +83,8 @@ public:
         countdownProgress;
 
     time_t
-        lastCountdownCheck;
+        lastCountdownCheck,
+        lastKickTime;
 };
 
 BZ_PLUGIN(lastTankStanding)
@@ -201,12 +202,32 @@ void lastTankStanding::Event(bz_EventData *eventData)
             {
                 if (bz_getPlayerCount() > 1)
                 {
+                    time_t currentTime;
+                    time(&currentTime);
 
+                    if (difftime(currentTime, lastKickTime) > 60)
+                    {
+                        if (getPlayerWithLowestScore() < 0)
+                        {
+                            bz_sendTextMessage(BZ_SERVER, BZ_ALLUSERS, "Multiple players with lowest score ... nobody gets kicked" );
+                            bz_sendTextMessagef(BZ_SERVER, BZ_ALLUSERS, "Next kick in %d seconds ... ", kickTime );
+                        }
+                        else
+                        {
+                            bz_BasePlayerRecord *lastPlace = bz_getPlayerByIndex(getPlayerWithLowestScore());
+                            bztk_changeTeam(lastPlace->playerID, eObservers);
+                            bz_sendTextMessagef(BZ_SERVER, BZ_ALLUSERS, "Kicked player with lowest score - \"%s\" (score: %d) - next kick in %d seconds", lastPlace->callsign.c_str(), (lastPlace->wins - lastPlace->losses), kickTime);
+                            bz_freePlayerRecord(lastPlace);
+                        }
+
+                        time(&lastKickTime);
+                    }
                 }
                 else if (bz_getPlayerCount() == 1)
                 {
                     bz_BasePlayerRecord *lastTankStanding = bz_getPlayerByIndex(getLastTankStanding());
                     bz_sendTextMessagef(BZ_SERVER, BZ_ALLUSERS, "Last Tank Standing is over! The winner is \"%s\" with a score of %d", lastTankStanding->callsign.c_str(), (lastTankStanding->wins - lastTankStanding->losses));
+                    bz_freePlayerRecord(lastTankStanding);
 
                     isCountdownInProgress = false;
                     isGameInProgress = false;
