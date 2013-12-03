@@ -1,6 +1,5 @@
 #include "bzfsAPI.h"
-#include "plugin_utils.h"
-#include "bztoolkit.h"
+#include "bzToolkitAPI.h"
 
 void resetPlayerScore(int playerID)
 {
@@ -16,7 +15,7 @@ public:
     virtual void Cleanup(void);
     virtual void Event(bz_EventData *eventData);
 
-    virtual bool SlashCommand(int playerID, bz_ApiString command, bz_ApiString message, bz_APIStringList* params);
+    virtual bool SlashCommand(int playerID, bz_ApiString, bz_ApiString, bz_APIStringList*);
 
     bool isCountdownInProgress, isGameInProgress;
     int countdownLength, kickTime;
@@ -109,7 +108,7 @@ void lastTankStanding::Event(bz_EventData *eventData)
     }
 }
 
-bool lastTankStanding::SlashCommand(int playerID, bz_ApiString command, bz_ApiString message, bz_APIStringList* params)
+bool lastTankStanding::SlashCommand(int playerID, bz_ApiString command, bz_ApiString /*message*/, bz_APIStringList *params)
 {
     if (command == "start" && bz_hasPerm(playerID, "vote"))
     {
@@ -127,6 +126,8 @@ bool lastTankStanding::SlashCommand(int playerID, bz_ApiString command, bz_ApiSt
             bz_setBZDBDouble("_reloadTime", 0.1);
             bz_setBZDBDouble("_tankSpeed", 0.000001);
             bz_setBZDBDouble("_tankAngVel", 0.000001);
+
+            return true;
         }
     }
     else if (command == "end" && bz_hasPerm(playerID, "gameover"))
