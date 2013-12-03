@@ -204,8 +204,9 @@ void lastTankStanding::Event(bz_EventData *eventData)
                 {
                     time_t currentTime;
                     time(&currentTime);
+                    int timeRemaining = difftime(currentTime, lastKickTime);
 
-                    if (difftime(currentTime, lastKickTime) > 60)
+                    if (timeRemaining > 60)
                     {
                         if (getPlayerWithLowestScore() < 0)
                         {
@@ -221,6 +222,14 @@ void lastTankStanding::Event(bz_EventData *eventData)
                         }
 
                         time(&lastKickTime);
+                    }
+                    else if (timeRemaining % 30 == 0)
+                    {
+                        bz_sendTextMessagef(BZ_SERVER, BZ_ALLUSERS, "%d seconds until the next player elimination", timeRemaining);
+                    }
+                    else if (timeRemaining <= 5)
+                    {
+                        bz_sendTextMessagef(BZ_SERVER, BZ_ALLUSERS, "%d...", timeRemaining);
                     }
                 }
                 else if (bz_getPlayerCount() == 1)
