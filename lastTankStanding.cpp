@@ -32,6 +32,7 @@ int getPlayerWithLowestScore()
 {
     int playerWithLowestScore = -1;
     int lowestHighestScore = 9999;
+    bool foundDuplicate = false;
 
     bz_APIIntList *playerList = bz_newIntList();
     bz_getPlayerIndexList(playerList);
@@ -44,11 +45,17 @@ int getPlayerWithLowestScore()
         {
             lowestHighestScore = playerScore;
             playerWithLowestScore = playerList->get(i);
+            foundDuplicate = false;
         }
         else if (playerScore == lowestHighestScore)
         {
-            return -1;
+            foundDuplicate = true;
         }
+    }
+
+    if (foundDuplicate)
+    {
+        playerWithLowestScore = -1;
     }
 
     bz_deleteIntList(playerList);
