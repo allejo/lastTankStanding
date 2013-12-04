@@ -39,6 +39,11 @@ int getPlayerWithLowestScore()
 
     for (unsigned int i = 0; i < playerList->size(); i++)
     {
+        if (bz_getPlayerTeam(playerList->get(i)) == eObservers)
+        {
+            continue;
+        }
+
         int playerScore = bz_getPlayerWins(playerList->get(i)) - bz_getPlayerLosses(playerList->get(i));
 
         if (playerScore < lowestHighestScore)
