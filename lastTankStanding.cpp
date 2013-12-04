@@ -75,7 +75,8 @@ public:
 
     bool
         isCountdownInProgress,
-        isGameInProgress;
+        isGameInProgress,
+        firstRun;
 
     int
         countdownLength,
@@ -173,7 +174,7 @@ void lastTankStanding::Event(bz_EventData *eventData)
                 time_t currentTime;
                 time(&currentTime);
 
-                if (difftime(currentTime, lastCountdownCheck) > 1)
+                if (difftime(currentTime, lastCountdownCheck) >= 1)
                 {
                     if (countdownProgress < 1)
                     {
@@ -206,30 +207,39 @@ void lastTankStanding::Event(bz_EventData *eventData)
                     time(&currentTime);
                     int timeRemaining = difftime(currentTime, lastKickTime);
 
-                    if (timeRemaining > 60)
+                    if (timeRemaining >= 60)
                     {
-                        if (getPlayerWithLowestScore() < 0)
+                        if (!firstRun)
                         {
-                            bz_sendTextMessage(BZ_SERVER, BZ_ALLUSERS, "Multiple players with lowest score ... nobody gets kicked" );
-                            bz_sendTextMessagef(BZ_SERVER, BZ_ALLUSERS, "Next kick in %d seconds ... ", kickTime );
+                            if (getPlayerWithLowestScore() < 0)
+                            {
+                                bz_sendTextMessage(BZ_SERVER, BZ_ALLUSERS, "Multiple players with lowest score ... nobody gets kicked" );
+                                bz_sendTextMessagef(BZ_SERVER, BZ_ALLUSERS, "Next kick in %d seconds ... ", kickTime );
+                            }
+                            else
+                            {
+                                bz_BasePlayerRecord *lastPlace = bz_getPlayerByIndex(getPlayerWithLowestScore());
+                                bztk_changeTeam(lastPlace->playerID, eObservers);
+                                bz_sendTextMessagef(BZ_SERVER, BZ_ALLUSERS, "Kicked player with lowest score - \"%s\" (score: %d) - next kick in %d seconds", lastPlace->callsign.c_str(), (lastPlace->wins - lastPlace->losses), kickTime);
+                                bz_freePlayerRecord(lastPlace);
+                            }
                         }
                         else
                         {
-                            bz_BasePlayerRecord *lastPlace = bz_getPlayerByIndex(getPlayerWithLowestScore());
-                            bztk_changeTeam(lastPlace->playerID, eObservers);
-                            bz_sendTextMessagef(BZ_SERVER, BZ_ALLUSERS, "Kicked player with lowest score - \"%s\" (score: %d) - next kick in %d seconds", lastPlace->callsign.c_str(), (lastPlace->wins - lastPlace->losses), kickTime);
-                            bz_freePlayerRecord(lastPlace);
+                            firstRun = false;
                         }
 
                         time(&lastKickTime);
                     }
-                    else if (timeRemaining % 30 == 0)
+                    else if (timeRemaining != 0 && timeRemaining % 30 == 0 && difftime(currentTime, lastCountdownCheck) > 1)
                     {
                         bz_sendTextMessagef(BZ_SERVER, BZ_ALLUSERS, "%d seconds until the next player elimination", timeRemaining);
+                        time(&lastCountdownCheck);
                     }
-                    else if (timeRemaining <= 5)
+                    else if (timeRemaining >= 55 && difftime(currentTime, lastCountdownCheck) >= 1)
                     {
-                        bz_sendTextMessagef(BZ_SERVER, BZ_ALLUSERS, "%d...", timeRemaining);
+                        bz_sendTextMessagef(BZ_SERVER, BZ_ALLUSERS, "%d...", 60 - timeRemaining);
+                        time(&lastCountdownCheck);
                     }
                 }
                 else if (bz_getPlayerCount() == 1)
@@ -261,6 +271,7 @@ bool lastTankStanding::SlashCommand(int playerID, bz_ApiString command, bz_ApiSt
         if (!isGameInProgress && !isCountdownInProgress && bztk_getPlayerCount() > 2)
         {
             isCountdownInProgress = true;
+            firstRun = true;
             time(&lastCountdownCheck);
 
             countdownProgress = countdownLength;
@@ -299,10 +310,17 @@ bool lastTankStanding::SlashCommand(int playerID, bz_ApiString command, bz_ApiSt
     }
     else if (command == "end" && bz_hasPerm(playerID, "gameover"))
     {
-        bz_sendTextMessagef(BZ_SERVER, BZ_ALLUSERS, "%s has ended the current game of Last Tank Standing.", bz_getPlayerByIndex(playerID)->callsign.c_str());
+        if (isGameInProgress || isCountdownInProgress)
+        {
+            bz_sendTextMessagef(BZ_SERVER, BZ_ALLUSERS, "%s has ended the current game of Last Tank Standing.", bz_getPlayerByIndex(playerID)->callsign.c_str());
 
-        isCountdownInProgress = false;
-        isGameInProgress = false;
+            isCountdownInProgress = false;
+            isGameInProgress = false;
+        }
+        else
+        {
+            bz_sendTextMessage(BZ_SERVER, playerID, "There is no active game of Last Tank Standing.");
+        }
 
         return true;
     }
