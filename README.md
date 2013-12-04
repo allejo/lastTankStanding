@@ -13,4 +13,4 @@ Vladimir "allejo" Jimenez
 Be sure the bzToolkit is located in the same folder as your plug-in is when you compile it or you modify the `#include` declaration in the plug-in code respective to the location of the bzToolkit.
 
 ## License
-GPL v2
+GPL v3
