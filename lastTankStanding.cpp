@@ -300,7 +300,7 @@ bool lastTankStanding::SlashCommand(int playerID, bz_ApiString command, bz_ApiSt
 {
     if (command == "start" && bz_hasPerm(playerID, "vote"))
     {
-        if (!isGameInProgress && !isCountdownInProgress /*&& bztk_getPlayerCount() > 2*/)
+        if (!isGameInProgress && !isCountdownInProgress && bztk_getPlayerCount() > 2)
         {
             isCountdownInProgress = true;
             firstRun = true;
