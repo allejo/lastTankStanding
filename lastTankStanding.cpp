@@ -135,7 +135,7 @@ void lastTankStanding::Init(const char* commandLine)
     Register(bz_ePlayerJoinEvent);
     Register(bz_eTickEvent);
 
-    bz_setBZDBBool("_disableSpeedChecks", true);
+    bz_setBZDBBool("_speedChecksLogOnly", true);
     bztk_registerCustomIntBZDB("_ltsKickTime", kickTime);
     bztk_registerCustomIntBZDB("_ltsCountdown", countdownLength);
 
@@ -252,7 +252,16 @@ void lastTankStanding::Event(bz_EventData *eventData)
                             {
                                 bz_BasePlayerRecord *lastPlace = bz_getPlayerByIndex(getPlayerWithLowestScore());
                                 bztk_changeTeam(lastPlace->playerID, eObservers);
-                                bz_sendTextMessagef(BZ_SERVER, BZ_ALLUSERS, "Player \"%s\" (score: %d) eliminated! - next elimination in %d seconds", lastPlace->callsign.c_str(), (lastPlace->wins - lastPlace->losses), kickTime);
+
+                                if (bztk_getPlayerCount() == 2)
+                                {
+                                    bz_sendTextMessagef(BZ_SERVER, BZ_ALLUSERS, "Player \"%s\" (score: %d) eliminated!", lastPlace->callsign.c_str(), (lastPlace->wins - lastPlace->losses));
+                                }
+                                else
+                                {
+                                    bz_sendTextMessagef(BZ_SERVER, BZ_ALLUSERS, "Player \"%s\" (score: %d) eliminated! - next elimination in %d seconds", lastPlace->callsign.c_str(), (lastPlace->wins - lastPlace->losses), kickTime);
+                                }
+
                                 bz_freePlayerRecord(lastPlace);
                             }
                         }
