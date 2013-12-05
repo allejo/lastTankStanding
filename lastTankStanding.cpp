@@ -357,6 +357,12 @@ bool lastTankStanding::SlashCommand(int playerID, bz_ApiString command, bz_ApiSt
 
             isCountdownInProgress = false;
             isGameInProgress = false;
+
+            bz_setBZDBDouble("_gravity", bzdb_gravity);
+            bz_setBZDBDouble("_jumpVelocity", bzdb_jumpVelocity);
+            bz_setBZDBDouble("_reloadTime", bzdb_reloadTime);
+            bz_setBZDBDouble("_tankAngVel", bzdb_tankAngVel);
+            bz_setBZDBDouble("_tankSpeed", bzdb_tankSpeed);
         }
         else
         {
