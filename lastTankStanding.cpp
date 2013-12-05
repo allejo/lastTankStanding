@@ -251,7 +251,6 @@ void lastTankStanding::Event(bz_EventData *eventData)
                             else
                             {
                                 bz_BasePlayerRecord *lastPlace = bz_getPlayerByIndex(getPlayerWithLowestScore());
-                                bztk_changeTeam(lastPlace->playerID, eObservers);
 
                                 if (bztk_getPlayerCount() == 2)
                                 {
@@ -262,6 +261,7 @@ void lastTankStanding::Event(bz_EventData *eventData)
                                     bz_sendTextMessagef(BZ_SERVER, BZ_ALLUSERS, "Player \"%s\" (score: %d) eliminated! - next elimination in %d seconds", lastPlace->callsign.c_str(), (lastPlace->wins - lastPlace->losses), kickTime);
                                 }
 
+                                bztk_changeTeam(lastPlace->playerID, eObservers);
                                 bz_freePlayerRecord(lastPlace);
                             }
                         }
