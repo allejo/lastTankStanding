@@ -161,7 +161,7 @@ void lastTankStanding::Event(bz_EventData *eventData)
 
             if (bzdbChange->key == "_ltsKickTime")
             {
-                if (atoi(bzdbChange->value.c_str()) > 0)
+                if (atoi(bzdbChange->value.c_str()) >= 45)
                 {
                     kickTime = atoi(bzdbChange->value.c_str());
                 }
@@ -172,7 +172,7 @@ void lastTankStanding::Event(bz_EventData *eventData)
             }
             else if (bzdbChange->key == "_ltsCountdown")
             {
-                if (atoi(bzdbChange->value.c_str()) > 0)
+                if (atoi(bzdbChange->value.c_str()) >= 10)
                 {
                     countdownLength = atoi(bzdbChange->value.c_str());
                 }
@@ -219,6 +219,8 @@ void lastTankStanding::Event(bz_EventData *eventData)
                         bz_setBZDBDouble("_tankAngVel", bzdb_tankAngVel);
                         bz_setBZDBDouble("_tankSpeed", bzdb_tankSpeed);
 
+                        bztk_foreachPlayer(resetPlayerScore);
+
                         bz_sendTextMessage(BZ_SERVER, BZ_ALLUSERS, "The game has started. Good luck!");
                         bz_sendTextMessagef(BZ_SERVER, BZ_ALLUSERS, "The player at the bottom of the scoreboard will be removed every %d seconds.", kickTime);
                     }
@@ -261,6 +263,7 @@ void lastTankStanding::Event(bz_EventData *eventData)
                                     bz_sendTextMessagef(BZ_SERVER, BZ_ALLUSERS, "Player \"%s\" (score: %d) eliminated! - next elimination in %d seconds", lastPlace->callsign.c_str(), (lastPlace->wins - lastPlace->losses), kickTime);
                                 }
 
+                                bztk_foreachPlayer(resetPlayerScore);
                                 bztk_changeTeam(lastPlace->playerID, eObservers);
                                 bz_freePlayerRecord(lastPlace);
                             }
