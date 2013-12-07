@@ -21,12 +21,14 @@ Last Tank Standing
 #include "bzfsAPI.h"
 #include "bzToolkitAPI.h"
 
+// A function that will reset the score for a specific player
 void resetPlayerScore(int playerID)
 {
     bz_setPlayerWins(playerID, 0);
     bz_setPlayerLosses(playerID, 0);
 }
 
+// Loop through all the players and see who's not an observer
 int getLastTankStanding()
 {
     int lastTankStanding = -1;
@@ -46,8 +48,10 @@ int getLastTankStanding()
     return lastTankStanding;
 }
 
+// Loop through all the players and find the one with the lowest score
 int getPlayerWithLowestScore()
 {
+    // Variables
     int playerWithLowestScore = -1;
     int lowestHighestScore = 9999;
     bool foundDuplicate = false;
@@ -55,32 +59,41 @@ int getPlayerWithLowestScore()
     bz_APIIntList *playerList = bz_newIntList();
     bz_getPlayerIndexList(playerList);
 
-    for (unsigned int i = 0; i < playerList->size(); i++)
+    for (unsigned int i = 0; i < playerList->size(); i++) // Loop through all the players
     {
-        if (bz_getPlayerTeam(playerList->get(i)) == eObservers)
+        if (bz_getPlayerTeam(playerList->get(i)) == eObservers) // Ignore them if they're an observer
         {
             continue;
         }
 
+        // Get the player score total (so subtract deaths from kills)
         int playerScore = bz_getPlayerWins(playerList->get(i)) - bz_getPlayerLosses(playerList->get(i));
 
+        // If we a player's score is lower than the lowest score recorded
         if (playerScore < lowestHighestScore)
         {
+            // Set the new lowest score
             lowestHighestScore = playerScore;
+
+            // Save the player ID
             playerWithLowestScore = playerList->get(i);
+
+            // There are no duplicate scores
             foundDuplicate = false;
         }
-        else if (playerScore == lowestHighestScore)
+        else if (playerScore == lowestHighestScore) // Someone has the same low score
         {
             foundDuplicate = true;
         }
     }
 
+    // If two people have the same lowest score, then return player ID -1 (a slot that'll never exist)
     if (foundDuplicate)
     {
         playerWithLowestScore = -1;
     }
 
+    // Clean up and return the player ID
     bz_deleteIntList(playerList);
     return playerWithLowestScore;
 }
@@ -95,6 +108,9 @@ public:
 
     virtual bool SlashCommand(int playerID, bz_ApiString, bz_ApiString, bz_APIStringList*);
 
+    virtual void disableMovement(void);
+    virtual void enableMovement(void);
+
     double
         startOfMatch,
         bzdb_gravity,
@@ -104,6 +120,7 @@ public:
         bzdb_tankAngVel;
 
     bool
+        resetScoreOnElimination,
         isCountdownInProgress,
         isGameInProgress,
         firstRun;
@@ -124,20 +141,26 @@ void lastTankStanding::Init(const char* commandLine)
 {
     bz_debugMessage(4, "lastTankStanding plugin loaded");
 
+    // Set default variables!
+    resetScoreOnElimination = false;
     isCountdownInProgress = false;
     isGameInProgress = false;
     countdownLength = 15;
     startOfMatch = 0;
     kickTime = 60;
 
+    // Register events
     Register(bz_eBZDBChange);
     Register(bz_ePlayerJoinEvent);
     Register(bz_eTickEvent);
 
+    // Set BZDB variables
     bz_setBZDBBool("_speedChecksLogOnly", true);
     bztk_registerCustomIntBZDB("_ltsKickTime", kickTime);
     bztk_registerCustomIntBZDB("_ltsCountdown", countdownLength);
+    bztk_registerCustomBoolBZDB("_ltsResetScoreOnElimination", resetScoreOnElimination);
 
+    // Register custom slash commands
     bz_registerCustomSlashCommand("start", this);
     bz_registerCustomSlashCommand("end", this);
 }
@@ -146,6 +169,7 @@ void lastTankStanding::Cleanup(void)
 {
     Flush();
 
+    // Remove our commands
     bz_removeCustomSlashCommand("start");
     bz_removeCustomSlashCommand("end");
 }
@@ -154,10 +178,11 @@ void lastTankStanding::Event(bz_EventData *eventData)
 {
     switch (eventData->eventType)
     {
-        case bz_eBZDBChange:
+        case bz_eBZDBChange: // A BZDB variable is changed
         {
             bz_BZDBChangeData_V1* bzdbChange = (bz_BZDBChangeData_V1*)eventData;
 
+            // Check if one of our LTS variables were changed
             if (bzdbChange->key == "_ltsKickTime")
             {
                 if (atoi(bzdbChange->value.c_str()) >= 45)
@@ -180,17 +205,30 @@ void lastTankStanding::Event(bz_EventData *eventData)
                     countdownLength = 15;
                 }
             }
+            else if (bzdbChange->key == "_ltsResetScoreOnElimination")
+            {
+                if (bzdbChange->value == "1" || bzdbChange->value == "true")
+                {
+                    resetScoreOnElimination = true;
+                }
+                else
+                {
+                    resetScoreOnElimination = false;
+                }
+            }
         }
 
-        case bz_ePlayerJoinEvent:
+        case bz_ePlayerJoinEvent: // A player has joined
         {
             bz_PlayerJoinPartEventData_V1 *join = (bz_PlayerJoinPartEventData_V1 *)eventData;
 
+            // The player was disconnected before they could fully join so ignore them
             if (!join->record)
             {
                 return;
             }
 
+            // If they don't join the observer team while a game is in progress, switch them
             if (join->record->team != eObservers && isGameInProgress)
             {
                 bz_sendTextMessage(BZ_SERVER, join->playerID, "There is a currently a match, in progress you have become an observer.");
@@ -198,61 +236,71 @@ void lastTankStanding::Event(bz_EventData *eventData)
             }
         }
 
-        case bz_eTickEvent:
+        case bz_eTickEvent: // Server tick cycle
         {
+            // The game countdown is in progress
             if (isCountdownInProgress)
             {
+                // Get the current time
                 time_t currentTime;
                 time(&currentTime);
 
+                // Make sure at least a second has past since our last countdown number
                 if (difftime(currentTime, lastCountdownCheck) >= 1)
                 {
+                    // If we've reached 0, the game has started!
                     if (countdownProgress < 1)
                     {
+                        // Set the variables
                         isCountdownInProgress = false;
                         isGameInProgress = true;
 
-                        bz_setBZDBDouble("_gravity", bzdb_gravity);
-                        bz_setBZDBDouble("_jumpVelocity", bzdb_jumpVelocity);
-                        bz_setBZDBDouble("_reloadTime", bzdb_reloadTime);
-                        bz_setBZDBDouble("_tankAngVel", bzdb_tankAngVel);
-                        bz_setBZDBDouble("_tankSpeed", bzdb_tankSpeed);
-
+                        enableMovement();
                         bztk_foreachPlayer(resetPlayerScore);
 
                         bz_sendTextMessage(BZ_SERVER, BZ_ALLUSERS, "The game has started. Good luck!");
                         bz_sendTextMessagef(BZ_SERVER, BZ_ALLUSERS, "The player at the bottom of the scoreboard will be removed every %d seconds.", kickTime);
                     }
-                    else
+                    else // We're still counting down
                     {
                         bz_sendTextMessagef(BZ_SERVER, BZ_ALLUSERS, "%i", countdownProgress);
-                        time(&lastCountdownCheck);
-                        countdownProgress--;
+                        time(&lastCountdownCheck); // Update the time of the last number announced
+                        countdownProgress--; // Decrease the amount of seconds we still have to go
                     }
                 }
             }
 
-            if (isGameInProgress)
+            if (isGameInProgress) // The game is in progress
             {
-                if (bztk_getPlayerCount() > 1)
+                if (bztk_getPlayerCount() > 1) // If there are more than one player playing...
                 {
-                    time_t currentTime;
+                    time_t currentTime; // Get the current time
                     time(&currentTime);
-                    int timeRemaining = difftime(currentTime, lastKickTime);
+                    int timeRemaining = difftime(currentTime, lastKickTime); // Check how much time is remaining
 
-                    if (timeRemaining >= 60)
+                    if (timeRemaining >= kickTime) // If we've reached the time to eliminate someone
                     {
-                        if (!firstRun)
+                        if (!firstRun) // If it's the first time running, ignore since it'll only eliminate no one
                         {
-                            if (getPlayerWithLowestScore() < 0)
+                            if (getPlayerWithLowestScore() < 0) // If the player is -1 then that means more than one player has the same low score
                             {
                                 bz_sendTextMessage(BZ_SERVER, BZ_ALLUSERS, "Multiple players with lowest score ... nobody gets eliminated" );
                                 bz_sendTextMessagef(BZ_SERVER, BZ_ALLUSERS, "Next elimination in %d seconds ... ", kickTime );
                             }
                             else
                             {
+                                // Make a reference
                                 bz_BasePlayerRecord *lastPlace = bz_getPlayerByIndex(getPlayerWithLowestScore());
 
+                                // The player doesn't exist for some reason
+                                if (!lastPlace)
+                                {
+                                    bz_sendTextMessage(BZ_SERVER, BZ_ALLUSERS, "Wait. Where'd the player go? Player to be eliminated not found!");
+                                    return;
+                                }
+
+                                // There are only two players left meaning the next one eliminated means the game is
+                                // Don't announce next elimination period
                                 if (bztk_getPlayerCount() == 2)
                                 {
                                     bz_sendTextMessagef(BZ_SERVER, BZ_ALLUSERS, "Player \"%s\" (score: %d) eliminated!", lastPlace->callsign.c_str(), (lastPlace->wins - lastPlace->losses));
@@ -262,49 +310,60 @@ void lastTankStanding::Event(bz_EventData *eventData)
                                     bz_sendTextMessagef(BZ_SERVER, BZ_ALLUSERS, "Player \"%s\" (score: %d) eliminated! - next elimination in %d seconds", lastPlace->callsign.c_str(), (lastPlace->wins - lastPlace->losses), kickTime);
                                 }
 
-                                bztk_foreachPlayer(resetPlayerScore);
+                                if (resetScoreOnElimination) // If we want to reset a player's score after each elimination
+                                {
+                                   bztk_foreachPlayer(resetPlayerScore);
+                                }
+
+                                // Swap them and clean up
                                 bztk_changeTeam(lastPlace->playerID, eObservers);
                                 bz_freePlayerRecord(lastPlace);
                             }
                         }
-                        else
+                        else // This is our first run, so no need to keep track any more
                         {
                             firstRun = false;
                         }
 
-                        time(&lastKickTime);
+                        time(&lastKickTime); // Update last time time
                     }
-                    else if (timeRemaining != 0 && timeRemaining % 30 == 0 && difftime(currentTime, lastCountdownCheck) > 1)
+                    else if (timeRemaining != 0 && timeRemaining % 30 == 0 && difftime(currentTime, lastCountdownCheck) > 1) // A multiple of 30 seconds is remaining
                     {
-                        bz_sendTextMessagef(BZ_SERVER, BZ_ALLUSERS, "%d seconds until the next player elimination", timeRemaining);
+                        bz_sendTextMessagef(BZ_SERVER, BZ_ALLUSERS, "%d seconds until the next player elimination.", timeRemaining);
                         time(&lastCountdownCheck);
                     }
-                    else if (timeRemaining >= 55 && difftime(currentTime, lastCountdownCheck) >= 1)
+                    else if (timeRemaining >= (kickTime - 5) && difftime(currentTime, lastCountdownCheck) >= 1) // Less than 5 seconds remaining
                     {
-                        bz_sendTextMessagef(BZ_SERVER, BZ_ALLUSERS, "%d...", 60 - timeRemaining);
+                        bz_sendTextMessagef(BZ_SERVER, BZ_ALLUSERS, "%d...", kickTime - timeRemaining);
                         time(&lastCountdownCheck);
                     }
                 }
-                else if (bztk_getPlayerCount() == 1)
+                else if (bztk_getPlayerCount() == 1) // Only one player remaining
                 {
+                    // Make a reference
                     bz_BasePlayerRecord *lastTankStanding = bz_getPlayerByIndex(getLastTankStanding());
 
+                    // Where'd our player go? Meh
                     if (!lastTankStanding)
                     {
+                        bz_sendTextMessage(BZ_SERVER, BZ_ALLUSERS, "What happened to our winner...?");
                         return;
                     }
 
+                    // Announce the winner
                     bz_sendTextMessagef(BZ_SERVER, BZ_ALLUSERS, "Last Tank Standing is over! The winner is \"%s\".", lastTankStanding->callsign.c_str());
                     bz_freePlayerRecord(lastTankStanding);
 
+                    // Reset the variables
                     isCountdownInProgress = false;
                     isGameInProgress = false;
                 }
                 else
                 {
-                    // Meh?
+                    // No players left and the game is still in progress
                     isCountdownInProgress = false;
                     isGameInProgress = false;
+                    enableMovement();
                 }
             }
         }
@@ -315,32 +374,22 @@ void lastTankStanding::Event(bz_EventData *eventData)
 
 bool lastTankStanding::SlashCommand(int playerID, bz_ApiString command, bz_ApiString /*message*/, bz_APIStringList *params)
 {
-    if (command == "start" && bz_hasPerm(playerID, "vote"))
+    if (command == "start" && bz_hasPerm(playerID, "vote")) // Typically only registered players will be able to start the game
     {
-        if (!isGameInProgress && !isCountdownInProgress && bztk_getPlayerCount() > 2)
+        if (!isGameInProgress && !isCountdownInProgress && bztk_getPlayerCount() > 2) // No game in progress, start one!
         {
-            isCountdownInProgress = true;
+            // Setup variables and stuff
             firstRun = true;
-            time(&lastCountdownCheck);
-
+            isCountdownInProgress = true;
             countdownProgress = countdownLength;
+            time(&lastCountdownCheck);
 
             bz_sendTextMessagef(BZ_SERVER, BZ_ALLUSERS, "%s started a new game of Last Tank Standing. New players are now unable to join.", bz_getPlayerByIndex(playerID)->callsign.c_str());
 
+            // Reset scores and disable movement
             bztk_foreachPlayer(resetPlayerScore);
             bz_sendTextMessagef(BZ_SERVER, BZ_ALLUSERS, "All scores have been reset.");
-
-            bzdb_gravity = bz_getBZDBDouble("_gravity");
-            bzdb_jumpVelocity = bz_getBZDBDouble("_jumpVelocity");
-            bzdb_reloadTime = bz_getBZDBDouble("_reloadTime");
-            bzdb_tankAngVel = bz_getBZDBDouble("_tankAngVel");
-            bzdb_tankSpeed = bz_getBZDBDouble("_tankSpeed");
-
-            bz_setBZDBDouble("_gravity", -1000.000000);
-            bz_setBZDBDouble("_jumpVelocity", 0.000000);
-            bz_setBZDBDouble("_reloadTime", 0.1);
-            bz_setBZDBDouble("_tankAngVel", 0.000001);
-            bz_setBZDBDouble("_tankSpeed", 0.000001);
+            disableMovement();
         }
         else if (isCountdownInProgress)
         {
@@ -357,22 +406,20 @@ bool lastTankStanding::SlashCommand(int playerID, bz_ApiString command, bz_ApiSt
 
         return true;
     }
-    else if (command == "end" && bz_hasPerm(playerID, "gameover"))
+    else if (command == "end" && bz_hasPerm(playerID, "gameover")) // Only admins can end a game
     {
-        if (isGameInProgress || isCountdownInProgress)
+        if (isGameInProgress || isCountdownInProgress) // If there's a game to end, end it
         {
             bz_sendTextMessagef(BZ_SERVER, BZ_ALLUSERS, "%s has ended the current game of Last Tank Standing.", bz_getPlayerByIndex(playerID)->callsign.c_str());
 
+            // Reset variables
             isCountdownInProgress = false;
             isGameInProgress = false;
 
-            bz_setBZDBDouble("_gravity", bzdb_gravity);
-            bz_setBZDBDouble("_jumpVelocity", bzdb_jumpVelocity);
-            bz_setBZDBDouble("_reloadTime", bzdb_reloadTime);
-            bz_setBZDBDouble("_tankAngVel", bzdb_tankAngVel);
-            bz_setBZDBDouble("_tankSpeed", bzdb_tankSpeed);
+            // Allow tanks to move just in case
+            enableMovement();
         }
-        else
+        else // No game to end, silly admin
         {
             bz_sendTextMessage(BZ_SERVER, playerID, "There is no active game of Last Tank Standing.");
         }
@@ -380,9 +427,41 @@ bool lastTankStanding::SlashCommand(int playerID, bz_ApiString command, bz_ApiSt
         return true;
     }
 
+    // No permission to execute these commands. Shame on them!
     if (command == "start" || command == "end")
     {
         bz_sendTextMessagef(BZ_SERVER, playerID, "You do not have permission to use the /%s command.", command.c_str());
         return true;
     }
 }
+
+// Disable tanks from movement and shooting
+void lastTankStanding::disableMovement()
+{
+    // Save variable settings
+    bzdb_gravity      = bz_getBZDBDouble("_gravity");
+    bzdb_jumpVelocity = bz_getBZDBDouble("_jumpVelocity");
+    bzdb_reloadTime   = bz_getBZDBDouble("_reloadTime");
+    bzdb_tankAngVel   = bz_getBZDBDouble("_tankAngVel");
+    bzdb_tankSpeed    = bz_getBZDBDouble("_tankSpeed");
+
+    // Disable movement and shooting
+    bz_setBZDBDouble("_gravity", -1000.000000);
+    bz_setBZDBDouble("_jumpVelocity", 0.000000);
+    bz_setBZDBDouble("_reloadTime", 0.1);
+    bz_setBZDBDouble("_tankAngVel", 0.000001);
+    bz_setBZDBDouble("_tankSpeed", 0.000001);
+}
+
+// Enable tanks to move and shoot again
+void lastTankStanding::enableMovement()
+{
+    // Reset BZDB variables from stored values to enable movement
+    bz_setBZDBDouble("_gravity", bzdb_gravity);
+    bz_setBZDBDouble("_jumpVelocity", bzdb_jumpVelocity);
+    bz_setBZDBDouble("_reloadTime", bzdb_reloadTime);
+    bz_setBZDBDouble("_tankAngVel", bzdb_tankAngVel);
+    bz_setBZDBDouble("_tankSpeed", bzdb_tankSpeed);
+}
+
+// End of lastTankStanding.cpp
