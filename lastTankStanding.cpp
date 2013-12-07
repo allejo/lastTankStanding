@@ -36,8 +36,7 @@ int getLastTankStanding()
 
     for (unsigned int i = 0; i < playerList->size(); i++)
     {
-        if (bz_getPlayerByIndex(playerList->get(i))->spawned &&
-            bz_getPlayerByIndex(playerList->get(i))->team != eObservers)
+        if (bz_getPlayerByIndex(playerList->get(i))->team != eObservers)
         {
             lastTankStanding = playerList->get(i);
         }
@@ -289,7 +288,13 @@ void lastTankStanding::Event(bz_EventData *eventData)
                 else if (bztk_getPlayerCount() == 1)
                 {
                     bz_BasePlayerRecord *lastTankStanding = bz_getPlayerByIndex(getLastTankStanding());
-                    bz_sendTextMessagef(BZ_SERVER, BZ_ALLUSERS, "Last Tank Standing is over! The winner is \"%s\" with a score of %d", lastTankStanding->callsign.c_str(), (lastTankStanding->wins - lastTankStanding->losses));
+
+                    if (!lastTankStanding)
+                    {
+                        return;
+                    }
+
+                    bz_sendTextMessagef(BZ_SERVER, BZ_ALLUSERS, "Last Tank Standing is over! The winner is \"%s\".", lastTankStanding->callsign.c_str());
                     bz_freePlayerRecord(lastTankStanding);
 
                     isCountdownInProgress = false;
