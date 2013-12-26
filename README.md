@@ -1,9 +1,7 @@
 Last Tank Standing
 ================
 
-A BZFlag game mode where the last tank standing wins the match. The player at the bottom of the scoreboard every 60 seconds will be removed and the last remaining player wins the match.
-
-A match of Last Tank Standing consists of multiple rounds, where a round is defined as the time period until someone is eliminated for being in last place. When a match is declared, all tanks are rendered immobile and cannot shoot until the match has started. During the countdown, last minute players are allowed to join or rejoin if they are not satisfied with their starting position. Once a game has started however, all new joiners will automatically be moved to the observer team and must wait for the next game to start. Everyone's scores are reset to 0 when the match is declared and when the countdown is over in case a stray bullet hits someone during the countdown so there is no need to rejoin to start from 0. After every 60 seconds (this value can be configured via a BZDB variable), the player with the lost score will be eliminated (i.e. moved to the observer team) and in the case of a tie for last place, no player will be eliminated.
+A BZFlag game mode where the last tank standing wins the match. A match of Last Tank Standing consists of multiple rounds, where a round is defined as the time period until someone is eliminated for being in last place. When a match is declared, all tanks are rendered immobile and cannot shoot until the match has started. During the countdown, last minute players are allowed to join or rejoin if they are not satisfied with their starting position. Once a game has started however, all new joiners will automatically be moved to the observer team and must wait for the next game to start. Everyone's scores are reset to 0 when the match is declared and when the countdown is over in case a stray bullet hits someone during the countdown so there is no need to rejoin to start from 0. After every 60 seconds (this value can be configured via a BZDB variable), the player with the lowest score will be eliminated (i.e. moved to the observer team) and in the case of a tie for last place, no player will be eliminated.
 
 Table of Contents
 -----------------
@@ -115,15 +113,15 @@ Because this plugin utilizes custom BZDB variables, using `-set _ltsKickTime 90`
 
 - Permission Requirement: Vote
 
-- Description: Start a new match of Last Tank Standing
+- Description: Start a new match of Last Tank Standing.
 
 /end
 
 - Permission Requirement: Gameover
 
-- Description: End the current game of Last Tank Standing
+- Description: End the current game of Last Tank Standing.
 
 License
 -------
 
-[GNU Public License v3](https://github.com/allejo/lastTankStanding/blob/master/LICENSE.markdown)
+[GNU General Public License v3](https://github.com/allejo/lastTankStanding/blob/master/LICENSE.markdown)
