@@ -46,7 +46,7 @@ Compiling
     `git clone -b v2_4_x https://github.com/BZFlag-Dev/bzflag-import-3.git bzflag`
 
 2.  Go into the newly checked out source code and then the plugins directory.  
-    `cd bzflag/plugins```
+    `cd bzflag/plugins`
 
 3.  Create a plugin using the `newplug.sh` script.  
     `sh newplug.sh lastTankStanding`
