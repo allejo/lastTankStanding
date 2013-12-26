@@ -19,7 +19,7 @@ Last Tank Standing
 #include <time.h>
 
 #include "bzfsAPI.h"
-#include "bzToolkitAPI.h"
+#include "bztoolkit/bzToolkitAPI.h"
 
 // A function that will reset the score for a specific player
 void resetPlayerScore(int playerID)
