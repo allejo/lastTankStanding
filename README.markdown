@@ -42,23 +42,23 @@ Compiling
 
 ### How To Compile
 
-1.  Check out the BZFlag source code.  
+1.  Check out the BZFlag source code.
 
     `git clone -b v2_4_x https://github.com/BZFlag-Dev/bzflag-import-3.git bzflag`
 
-2.  Go into the newly checked out source code and then the plugins directory.  
+2.  Go into the newly checked out source code and then the plugins directory.
 
     `cd bzflag/plugins`
 
-3.  Create a plugin using the `newplug.sh` script.  
+3.  Create a plugin using the `newplug.sh` script.
 
     `sh newplug.sh lastTankStanding`
 
-4.  Delete the newly create lastTankStanding directory.  
+4.  Delete the newly create lastTankStanding directory.
 
     `rm -rf lastTankStanding`
 
-5.  Run a git clone of this repository from within the plugins directory. This should have created a new lastTankStanding directory within the plugins directory.  
+5.  Run a git clone of this repository from within the plugins directory. This should have created a new lastTankStanding directory within the plugins directory.
 
     `git clone https://github.com/allejo/lastTankStanding.git`
 
@@ -66,7 +66,7 @@ Compiling
 
     `cd lastTankStanding; git submodule update --init`
 
-7.  Instruct the build system to generate a Makefile and then compile and install the plugin.  
+7.  Instruct the build system to generate a Makefile and then compile and install the plugin.
 
     `cd ../..; ./autogen.sh; ./configure; make; make install;`
 
