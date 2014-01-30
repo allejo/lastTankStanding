@@ -1,6 +1,6 @@
 /*
 Last Tank Standing
-    Copyright (C) 2013 Vladimir Jimenez
+    Copyright (C) 2013-2014 Vladimir Jimenez
 
     This program is free software: you can redistribute it and/or modify
     it under the terms of the GNU General Public License as published by
@@ -20,6 +20,16 @@ Last Tank Standing
 
 #include "bzfsAPI.h"
 #include "bztoolkit/bzToolkitAPI.h"
+
+// Switch players if they have idled too long or are paused for too long
+void checkIdleTime(int playerID)
+{
+    if (bz_getIdleTime(playerID) >= bz_getBZDBDouble("_ltsIdleKickTime"))
+    {
+        bztk_changeTeam(playerID, eObservers);
+        bz_sendTextMessagef(BZ_SERVER, playerID, "You have been automatically eliminated for idling too long.");
+    }
+}
 
 // A function that will reset the score for a specific player
 void resetPlayerScore(int playerID)
@@ -126,9 +136,10 @@ public:
         firstRun;
 
     int
+        countdownProgress,
         countdownLength,
-        kickTime,
-        countdownProgress;
+        idleKickTime,
+        kickTime;
 
     time_t
         lastCountdownCheck,
@@ -146,18 +157,21 @@ void lastTankStanding::Init(const char* commandLine)
     isCountdownInProgress = false;
     isGameInProgress = false;
     countdownLength = 15;
+    idleKickTime = 30;
     startOfMatch = 0;
     kickTime = 60;
 
     // Register events
     Register(bz_eBZDBChange);
     Register(bz_ePlayerJoinEvent);
+    Register(bz_ePlayerPausedEvent);
     Register(bz_eTickEvent);
 
     // Set BZDB variables
     bz_setBZDBBool("_speedChecksLogOnly", true);
     bztk_registerCustomIntBZDB("_ltsKickTime", kickTime);
     bztk_registerCustomIntBZDB("_ltsCountdown", countdownLength);
+    bztk_registerCustomIntBZDB("_ltsIdleKickTime", idleKickTime);
     bztk_registerCustomBoolBZDB("_ltsResetScoreOnElimination", resetScoreOnElimination);
 
     // Register custom slash commands
@@ -192,6 +206,19 @@ void lastTankStanding::Event(bz_EventData *eventData)
                 else
                 {
                     kickTime = 60;
+                }
+            }
+            else if (bzdbChange->key == "_ltsIdleKickTime")
+            {
+                int _idleTime = atoi(bzdbChange->value.c_str());
+
+                if (_idleTime >= 15 && _idleTime <= 45)
+                {
+                    idleKickTime = _idleTime;
+                }
+                else
+                {
+                    idleKickTime = 30;
                 }
             }
             else if (bzdbChange->key == "_ltsCountdown")
@@ -236,6 +263,18 @@ void lastTankStanding::Event(bz_EventData *eventData)
             }
         }
 
+        case bz_ePlayerPausedEvent: // This event is called each time a playing tank is paused
+        {
+            bz_PlayerPausedEventData_V1* pauseData = (bz_PlayerPausedEventData_V1*)eventData;
+
+            if (pauseData->pause)
+            {
+                bz_sendTextMessagef(BZ_SERVER, pauseData->playerID, "Warning: Pausing during a match is unsportsmanlike conduct.");
+                bz_sendTextMessagef(BZ_SERVER, pauseData->playerID, "         You will automatically be kicked in %d seconds.", idleKickTime);
+            }
+        }
+        break;
+
         case bz_eTickEvent: // Server tick cycle
         {
             // The game countdown is in progress
@@ -274,6 +313,8 @@ void lastTankStanding::Event(bz_EventData *eventData)
             {
                 if (bztk_getPlayerCount() > 1) // If there are more than one player playing...
                 {
+                    bztk_foreachPlayer(checkIdleTime); // Check whether or not to eliminate a player for idling too long
+
                     time_t currentTime; // Get the current time
                     time(&currentTime);
                     int timeRemaining = difftime(currentTime, lastKickTime); // Check how much time is remaining
@@ -360,6 +401,8 @@ void lastTankStanding::Event(bz_EventData *eventData)
                 }
                 else
                 {
+                    bz_sendTextMessagef(BZ_SERVER, BZ_ALLUSERS, "The current match was ended automatically with no winner.");
+
                     // No players left and the game is still in progress
                     isCountdownInProgress = false;
                     isGameInProgress = false;
