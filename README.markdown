@@ -36,7 +36,7 @@ Compiling
 
 ### Requirements
 
-- BZFlag 2.4.0+
+- BZFlag 2.4.3+ (After Jan 29th 2013)
 
 - [bzToolkit](https://github.com/allejo/bztoolkit/)
 
