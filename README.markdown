@@ -97,6 +97,12 @@ _ltsCountdown
 
 - Description: The number of seconds for the countdown before a game of Last Tank Standing starts.
 
+_ltsIdleKickTime
+
+- Default: *30*
+
+- Description: The numer of seconds to eliminate a player for idling or pausing during a match.
+
 _ltsResetScoreOnElimination
 
 - Default *false*
