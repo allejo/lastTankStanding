@@ -21,6 +21,7 @@ Last Tank Standing
 
 #include "bzfsAPI.h"
 #include "bztoolkit/bzToolkitAPI.h"
+#include "plugin_utils.h"
 
 // Switch players if they have idled too long or are paused for too long
 void checkIdleTime(int playerID)
@@ -127,6 +128,7 @@ public:
 
     virtual bool SlashCommand(int playerID, bz_ApiString, bz_ApiString, bz_APIStringList*);
 
+    virtual void loadConfiguration(const char* configFile);
     virtual void disableMovement(void);
     virtual void enableMovement(void);
 
@@ -150,6 +152,10 @@ public:
         idleKickTime,            // The number of seconds a player is allowed to idle before getting eliminated automatically
         kickTime;                // The duration of each round for player elimination
 
+    std::string
+        startPermission,         // The server permission required to start a game
+        gameoverPermission;      // The server permission required to end a game
+
     time_t
         lastCountdownCheck,      // The time stamp used to keep each number of the countdown exactly one second apart
         lastKickTime;            // The time stamp of the previous elimination of a player
@@ -159,6 +165,9 @@ BZ_PLUGIN(lastTankStanding)
 
 void lastTankStanding::Init(const char* commandLine)
 {
+    // Load an option configuration file
+    loadConfiguration(commandLine);
+
     // Set default variables!
     resetScoreOnElimination = false;
     isCountdownInProgress = false;
@@ -421,7 +430,7 @@ void lastTankStanding::Event(bz_EventData *eventData)
 
 bool lastTankStanding::SlashCommand(int playerID, bz_ApiString command, bz_ApiString /*message*/, bz_APIStringList *params)
 {
-    if (command == "start" && bz_hasPerm(playerID, "vote")) // Typically only registered players will be able to start the game
+    if (command == "start" && bz_hasPerm(playerID, startPermission.c_str())) // Check the permissions, by default any registered players can start a game
     {
         if (!isGameInProgress && !isCountdownInProgress && bztk_getPlayerCount() > 2) // No game in progress, start one!
         {
@@ -453,7 +462,7 @@ bool lastTankStanding::SlashCommand(int playerID, bz_ApiString command, bz_ApiSt
 
         return true;
     }
-    else if (command == "end" && bz_hasPerm(playerID, "gameover")) // Only admins can end a game
+    else if (command == "end" && bz_hasPerm(playerID, gameoverPermission.c_str())) // Check the permission requirements, by default only admins can end a game
     {
         if (isGameInProgress || isCountdownInProgress) // If there's a game to end, end it
         {
@@ -480,6 +489,31 @@ bool lastTankStanding::SlashCommand(int playerID, bz_ApiString command, bz_ApiSt
         bz_sendTextMessagef(BZ_SERVER, playerID, "You do not have permission to use the /%s command.", command.c_str());
         return true;
     }
+}
+
+void lastTankStanding::loadConfiguration(const char* configFile)
+{
+    startPermission     = "vote";
+    gameoverPermission  = "gameover";
+
+    if (configFile && configFile[0] != '\0')
+    {
+        PluginConfig config = PluginConfig(configFile);
+        std::string section = "lastTankStanding";
+
+        if (config.errors)
+        {
+            bz_debugMessagef(0, "Your configuration file has errors and has failed to load. Using default permissions...");
+        }
+        else
+        {
+            startPermission    = config.item(section, "GAME_START_PERM");
+            gameoverPermission = config.item(section, "GAME_END_PERM");
+        }
+    }
+
+    bz_debugMessagef(2, "DEBUG :: Last Tank Standing :: The /start command requires the '%s' permission.", startPermission);
+    bz_debugMessagef(2, "DEBUG :: Last Tank Standing :: The /end command requires the '%s' permission.", gameoverPermission);
 }
 
 // Disable tanks from movement and shooting
