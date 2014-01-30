@@ -16,6 +16,7 @@ Last Tank Standing
     along with this program.  If not, see <http://www.gnu.org/licenses/>.
 */
 
+#include <memory>
 #include <time.h>
 
 #include "bzfsAPI.h"
@@ -24,8 +25,10 @@ Last Tank Standing
 // Switch players if they have idled too long or are paused for too long
 void checkIdleTime(int playerID)
 {
+    // Check the amount of time a player has been idle or paused
     if (bz_getIdleTime(playerID) >= bz_getBZDBDouble("_ltsIdleKickTime"))
     {
+        // We will automatically eliminate players if they idle for too long
         bztk_changeTeam(playerID, eObservers);
         bz_sendTextMessagef(BZ_SERVER, playerID, "You have been automatically eliminated for idling too long.");
     }
@@ -41,20 +44,28 @@ void resetPlayerScore(int playerID)
 // Loop through all the players and see who's not an observer
 int getLastTankStanding()
 {
+    // By default, we will select the winner to be -1
     int lastTankStanding = -1;
 
-    bz_APIIntList *playerList = bz_newIntList();
-    bz_getPlayerIndexList(playerList);
+    // If there is more than one player playing, then that means we don't have the last tank standing
+    if (bztk_getPlayerCount() > 1)
+    {
+        return lastTankStanding;
+    }
 
+    // Get the list of all of the players in a smart pointer
+    std::unique_ptr<bz_APIIntList> playerList(bz_getPlayerIndexList());
+
+    // Loop through all of the players in the list
     for (unsigned int i = 0; i < playerList->size(); i++)
     {
+        // If the player is not an observer, then that means we've found the last player standing
         if (bz_getPlayerByIndex(playerList->get(i))->team != eObservers)
         {
             lastTankStanding = playerList->get(i);
         }
     }
 
-    bz_deleteIntList(playerList);
     return lastTankStanding;
 }
 
@@ -66,8 +77,8 @@ int getPlayerWithLowestScore()
     int lowestHighestScore = 9999;
     bool foundDuplicate = false;
 
-    bz_APIIntList *playerList = bz_newIntList();
-    bz_getPlayerIndexList(playerList);
+    // Get the list of all of the players in a smart pointer
+    std::unique_ptr<bz_APIIntList> playerList(bz_getPlayerIndexList());
 
     for (unsigned int i = 0; i < playerList->size(); i++) // Loop through all the players
     {
@@ -103,8 +114,6 @@ int getPlayerWithLowestScore()
         playerWithLowestScore = -1;
     }
 
-    // Clean up and return the player ID
-    bz_deleteIntList(playerList);
     return playerWithLowestScore;
 }
 
@@ -122,43 +131,40 @@ public:
     virtual void enableMovement(void);
 
     double
-        startOfMatch,
-        bzdb_gravity,
-        bzdb_jumpVelocity,
-        bzdb_reloadTime,
-        bzdb_tankSpeed,
-        bzdb_tankAngVel;
+        bzdb_gravity,            // The default values of certain BZDB variables that we will change to disable movement
+        bzdb_jumpVelocity,       //     so we need to store the original values for when we reenable movement.
+        bzdb_reloadTime,         //
+        bzdb_tankSpeed,          //
+        bzdb_tankAngVel;         //
 
     bool
-        resetScoreOnElimination,
-        isCountdownInProgress,
-        isGameInProgress,
-        firstRun;
+        resetScoreOnElimination, // Whether or not to reset all of the players' scores after each elimination
+        isCountdownInProgress,   // Whether or not the countdown to start the game is in progress
+        isGameInProgress,        // Whether or not a current match is in progress
+        firstRun;                // Whether or not this is the first loop in a game to prevent announcing the amount of
+                                 //     seconds remaining until the kick at the start of the game
 
     int
-        countdownProgress,
-        countdownLength,
-        idleKickTime,
-        kickTime;
+        countdownProgress,       // The number of seconds still left in the countdown
+        countdownLength,         // The duration the countdown for a new game should be
+        idleKickTime,            // The number of seconds a player is allowed to idle before getting eliminated automatically
+        kickTime;                // The duration of each round for player elimination
 
     time_t
-        lastCountdownCheck,
-        lastKickTime;
+        lastCountdownCheck,      // The time stamp used to keep each number of the countdown exactly one second apart
+        lastKickTime;            // The time stamp of the previous elimination of a player
 };
 
 BZ_PLUGIN(lastTankStanding)
 
 void lastTankStanding::Init(const char* commandLine)
 {
-    bz_debugMessage(4, "lastTankStanding plugin loaded");
-
     // Set default variables!
     resetScoreOnElimination = false;
     isCountdownInProgress = false;
     isGameInProgress = false;
     countdownLength = 15;
     idleKickTime = 30;
-    startOfMatch = 0;
     kickTime = 60;
 
     // Register events
@@ -250,7 +256,7 @@ void lastTankStanding::Event(bz_EventData *eventData)
             bz_PlayerJoinPartEventData_V1 *join = (bz_PlayerJoinPartEventData_V1 *)eventData;
 
             // The player was disconnected before they could fully join so ignore them
-            if (!join->record)
+            if (!join || !join->record)
             {
                 return;
             }
@@ -258,7 +264,7 @@ void lastTankStanding::Event(bz_EventData *eventData)
             // If they don't join the observer team while a game is in progress, switch them
             if (join->record->team != eObservers && isGameInProgress)
             {
-                bz_sendTextMessage(BZ_SERVER, join->playerID, "There is a currently a match, in progress you have become an observer.");
+                bz_sendTextMessage(BZ_SERVER, join->playerID, "There is a currently a match in progress, you have automatically become an observer.");
                 bztk_changeTeam(join->playerID, eObservers);
             }
         }
