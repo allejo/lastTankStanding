@@ -336,8 +336,8 @@ void lastTankStanding::Event(bz_EventData *eventData)
                             }
                             else
                             {
-                                // Make a reference
-                                bz_BasePlayerRecord *lastPlace = bz_getPlayerByIndex(getPlayerWithLowestScore());
+                                // Make a reference object of the player in last place
+                                std::unique_ptr<bz_BasePlayerRecord> lastPlace(bz_getPlayerByIndex(getPlayerWithLowestScore()));
 
                                 // The player doesn't exist for some reason
                                 if (!lastPlace)
@@ -364,7 +364,6 @@ void lastTankStanding::Event(bz_EventData *eventData)
 
                                 // Swap them and clean up
                                 bztk_changeTeam(lastPlace->playerID, eObservers);
-                                bz_freePlayerRecord(lastPlace);
                             }
                         }
                         else // This is our first run, so no need to keep track any more
@@ -388,7 +387,7 @@ void lastTankStanding::Event(bz_EventData *eventData)
                 else if (bztk_getPlayerCount() == 1) // Only one player remaining
                 {
                     // Make a reference
-                    bz_BasePlayerRecord *lastTankStanding = bz_getPlayerByIndex(getLastTankStanding());
+                    std::unique_ptr<bz_BasePlayerRecord> lastTankStanding(bz_getPlayerByIndex(getLastTankStanding()));
 
                     // Where'd our player go? Meh
                     if (!lastTankStanding)
@@ -399,7 +398,6 @@ void lastTankStanding::Event(bz_EventData *eventData)
 
                     // Announce the winner
                     bz_sendTextMessagef(BZ_SERVER, BZ_ALLUSERS, "Last Tank Standing is over! The winner is \"%s\".", lastTankStanding->callsign.c_str());
-                    bz_freePlayerRecord(lastTankStanding);
 
                     // Reset the variables
                     isCountdownInProgress = false;
