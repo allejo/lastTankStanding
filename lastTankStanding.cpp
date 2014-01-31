@@ -21,7 +21,7 @@ Last Tank Standing
 
 #include "bzfsAPI.h"
 #include "bztoolkit/bzToolkitAPI.h"
-#include "plugin_utils.h"
+#include "plugin_config.h"
 
 // Switch players if they have idled too long or are paused for too long
 void checkIdleTime(int playerID)
@@ -328,11 +328,15 @@ void lastTankStanding::Event(bz_EventData *eventData)
             {
                 if (bztk_getPlayerCount() > 1) // If there are more than one player playing...
                 {
-                    bztk_foreachPlayer(checkIdleTime); // Check whether or not to eliminate a player for idling too long
-
                     time_t currentTime; // Get the current time
                     time(&currentTime);
                     int timeRemaining = difftime(currentTime, lastKickTime); // Check how much time is remaining
+
+                    // Check whether or not to eliminate a player for idling too long
+                    if (!firstRun)
+                    {
+                        bztk_foreachPlayer(checkIdleTime);
+                    }
 
                     if (timeRemaining >= kickTime) // If we've reached the time to eliminate someone
                     {
@@ -382,7 +386,7 @@ void lastTankStanding::Event(bz_EventData *eventData)
 
                         time(&lastKickTime); // Update last time time
                     }
-                    else if (timeRemaining != 0 && timeRemaining % 30 == 0 && difftime(currentTime, lastCountdownCheck) > 1) // A multiple of 30 seconds is remaining
+                    else if (timeRemaining != 0 && timeRemaining % 15 == 0 && difftime(currentTime, lastCountdownCheck) > 1) // A multiple of 30 seconds is remaining
                     {
                         bz_sendTextMessagef(BZ_SERVER, BZ_ALLUSERS, "%d seconds until the next player elimination.", timeRemaining);
                         time(&lastCountdownCheck);
@@ -512,8 +516,8 @@ void lastTankStanding::loadConfiguration(const char* configFile)
         }
     }
 
-    bz_debugMessagef(2, "DEBUG :: Last Tank Standing :: The /start command requires the '%s' permission.", startPermission);
-    bz_debugMessagef(2, "DEBUG :: Last Tank Standing :: The /end command requires the '%s' permission.", gameoverPermission);
+    bz_debugMessagef(2, "DEBUG :: Last Tank Standing :: The /start command requires the '%s' permission.", startPermission.c_str());
+    bz_debugMessagef(2, "DEBUG :: Last Tank Standing :: The /end command requires the '%s' permission.", gameoverPermission.c_str());
 }
 
 // Disable tanks from movement and shooting
