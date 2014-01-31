@@ -69,6 +69,22 @@ Compiling
 7.  Instruct the build system to generate a Makefile and then compile and install the plugin.
 
     `cd ../..; ./autogen.sh; ./configure; make; make install;`
+    
+### Updating the Plugin
+
+1.  Go into the lastTankStanding folder located in your plugins folder.
+
+2.  Pull the changes from Git.
+
+    `git pull origin master`
+
+3.  (Optional) If you have made local changes to any of the files from this project, you may receive conflict errors where you may resolve the conflicts yourself or you may simply overwrite your changes with whatever is in the repository, which is recommended. *If you have a conflict every time you update because of your local change, submit a pull request and it will be accepted, provided it's a reasonable change.*
+
+    `git reset --hard origin/master; git pull`
+
+4.  Compile the changes.
+
+    `make; make install;`
 
 Server Details
 --------------
@@ -79,10 +95,15 @@ To use this plugin after it has been compiled, simply load the plugin via the co
 
 `-loadplugin /path/to/lastTankStanding.so`
 
+If you would like to override the default permissions required for /start and /end for a tournament environment, use the configuration file to specify the permissions required to use the commands and pass the configuration as a parameter when loading the plugin.
+
+`-loadplugin /path/to/lastTankStanding.so,/path/to/lastTankStanding.cfg`
+
 ### Custom BZDB Variables
 
     _ltsKickTime
     _ltsCountdown
+    _ltsIdleKickTime
     _ltsResetScoreOnElimination
 
 _ltsKickTime
@@ -129,6 +150,22 @@ Because this plugin utilizes custom BZDB variables, using `-set _ltsKickTime 90`
 - Permission Requirement: Gameover
 
 - Description: End the current game of Last Tank Standing.
+
+**Notice:** *These default permission requirements can be modified by using the optional configuration file to set your own permissions.*
+
+### Configuration File Options
+
+GAME_END_PERM
+
+- Default: gameover
+
+- Description: The permission required for the /end command.
+
+GAME_START_PERM
+
+- Default: ban
+
+- Description: The permission required for the /start command.
 
 License
 -------
