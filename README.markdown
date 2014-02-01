@@ -155,6 +155,8 @@ Because this plugin utilizes custom BZDB variables, using `-set _ltsKickTime 90`
 
 ### Configuration File Options
 
+The configuration file is entirely optional and is only used to specify custom permissions for the /start and /end slash commands. If a configuration file is not specified, the plugin will use the default permissions.
+
 GAME_END_PERM
 
 - Default: gameover
