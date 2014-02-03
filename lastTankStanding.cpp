@@ -388,7 +388,7 @@ void lastTankStanding::Event(bz_EventData *eventData)
                     }
                     else if (timeRemaining != 0 && timeRemaining % 15 == 0 && difftime(currentTime, lastCountdownCheck) > 1) // A multiple of 30 seconds is remaining
                     {
-                        bz_sendTextMessagef(BZ_SERVER, BZ_ALLUSERS, "%d seconds until the next player elimination.", timeRemaining);
+                        bz_sendTextMessagef(BZ_SERVER, BZ_ALLUSERS, "%d seconds until the next player elimination.", kickTime - timeRemaining);
                         time(&lastCountdownCheck);
                     }
                     else if (timeRemaining >= (kickTime - 5) && difftime(currentTime, lastCountdownCheck) >= 1) // Less than 5 seconds remaining
