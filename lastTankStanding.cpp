@@ -281,8 +281,10 @@ void lastTankStanding::Event(bz_EventData *eventData)
         case bz_ePlayerPausedEvent: // This event is called each time a playing tank is paused
         {
             bz_PlayerPausedEventData_V1* pauseData = (bz_PlayerPausedEventData_V1*)eventData;
+            std::unique_ptr<bz_BasePlayerRecord> pausedPlayer(bz_getPlayerByIndex(pauseData->playerID));
 
-            if (pauseData->pause)
+            // If the player exists, is not an observer, is paused, and there's a game in progress, warn them.
+            if (pausedPlayer && pausedPlayer->team != eObservers && pauseData->pause && isGameInProgress)
             {
                 bz_sendTextMessagef(BZ_SERVER, pauseData->playerID, "Warning: Pausing during a match is unsportsmanlike conduct.");
                 bz_sendTextMessagef(BZ_SERVER, pauseData->playerID, "         You will automatically be kicked in %d seconds.", idleKickTime);
@@ -388,7 +390,7 @@ void lastTankStanding::Event(bz_EventData *eventData)
                     }
                     else if (timeRemaining != 0 && timeRemaining % 15 == 0 && difftime(currentTime, lastCountdownCheck) > 1) // A multiple of 30 seconds is remaining
                     {
-                        bz_sendTextMessagef(BZ_SERVER, BZ_ALLUSERS, "%d seconds until the next player elimination.", timeRemaining);
+                        bz_sendTextMessagef(BZ_SERVER, BZ_ALLUSERS, "%d seconds until the next player elimination.", (kickTime - timeRemaining));
                         time(&lastCountdownCheck);
                     }
                     else if (timeRemaining >= (kickTime - 5) && difftime(currentTime, lastCountdownCheck) >= 1) // Less than 5 seconds remaining
