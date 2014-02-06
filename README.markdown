@@ -157,7 +157,7 @@ Because this plugin utilizes custom BZDB variables, using `-set _ltsKickTime 90`
 
 The configuration file is entirely optional and is only used to specify custom permissions for the /start and /end slash commands; if the specified permission is not a default permission with BZFS, it will be automatically created meaning you can create your own "lts" permission. If a configuration file is not specified, the plugin will use the default permissions specificed above in the "Custom Slash Commands" section.
 
-**Notice:** *When using the configuration file, do **not** use single or double quotes when specifying the permissions.*
+**Notice:** *When using the configuration file, do __not__ use single or double quotes when specifying the permissions.*
 
 GAME_END_PERM
 
