@@ -500,7 +500,7 @@ bool lastTankStanding::SlashCommand(int playerID, bz_ApiString command, bz_ApiSt
 void lastTankStanding::loadConfiguration(const char* configFile)
 {
     startPermission     = "vote";
-    gameoverPermission  = "gameover";
+    gameoverPermission  = "endgame";
 
     if (configFile && configFile[0] != '\0')
     {
