@@ -158,7 +158,7 @@ public:
 
     time_t
         lastCountdownCheck,      // The time stamp used to keep each number of the countdown exactly one second apart
-        lastKickTime;            // The time stamp of the previous elimination of a player
+        lastEliminationTime;     // The time stamp of the previous elimination of a player
 };
 
 BZ_PLUGIN(lastTankStanding)
@@ -316,6 +316,8 @@ void lastTankStanding::Event(bz_EventData *eventData)
 
                         bz_sendTextMessage(BZ_SERVER, BZ_ALLUSERS, "The game has started. Good luck!");
                         bz_sendTextMessagef(BZ_SERVER, BZ_ALLUSERS, "The player at the bottom of the scoreboard will be removed every %d seconds.", kickTime);
+
+                        time(&lastEliminationTime); // Have the last kick time be the beginning of the game
                     }
                     else // We're still counting down
                     {
@@ -332,7 +334,7 @@ void lastTankStanding::Event(bz_EventData *eventData)
                 {
                     time_t currentTime; // Get the current time
                     time(&currentTime);
-                    int timeRemaining = difftime(currentTime, lastKickTime); // Check how much time is remaining
+                    int timeRemaining = difftime(currentTime, lastEliminationTime); // Check how much time is remaining
 
                     // Check whether or not to eliminate a player for idling too long
                     if (!firstRun)
@@ -386,7 +388,7 @@ void lastTankStanding::Event(bz_EventData *eventData)
                             firstRun = false;
                         }
 
-                        time(&lastKickTime); // Update last time time
+                        time(&lastEliminationTime); // Update last kick time
                     }
                     else if (timeRemaining != 0 && timeRemaining % 15 == 0 && difftime(currentTime, lastCountdownCheck) > 1) // A multiple of 30 seconds is remaining
                     {
