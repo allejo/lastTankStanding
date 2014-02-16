@@ -75,7 +75,7 @@ int getPlayerWithLowestScore()
 {
     // Variables
     int playerWithLowestScore = -1;
-    int lowestHighestScore = 9999;
+    int lowestHighestScore = 99999;
     bool foundDuplicate = false;
 
     // Get the list of all of the players in a smart pointer
@@ -344,51 +344,45 @@ void lastTankStanding::Event(bz_EventData *eventData)
 
                     if (timeRemaining >= kickTime) // If we've reached the time to eliminate someone
                     {
-                        if (!firstRun) // If it's the first time running, ignore since it'll only eliminate no one
+                        if (getPlayerWithLowestScore() < 0) // If the player is -1 then that means more than one player has the same low score
                         {
-                            if (getPlayerWithLowestScore() < 0) // If the player is -1 then that means more than one player has the same low score
+                            bz_sendTextMessage(BZ_SERVER, BZ_ALLUSERS, "Multiple players with lowest score ... nobody gets eliminated" );
+                            bz_sendTextMessagef(BZ_SERVER, BZ_ALLUSERS, "Next elimination in %d seconds ... ", kickTime );
+                        }
+                        else
+                        {
+                            // Make a reference object of the player in last place
+                            std::unique_ptr<bz_BasePlayerRecord> lastPlace(bz_getPlayerByIndex(getPlayerWithLowestScore()));
+
+                            // The player doesn't exist for some reason
+                            if (!lastPlace)
                             {
-                                bz_sendTextMessage(BZ_SERVER, BZ_ALLUSERS, "Multiple players with lowest score ... nobody gets eliminated" );
-                                bz_sendTextMessagef(BZ_SERVER, BZ_ALLUSERS, "Next elimination in %d seconds ... ", kickTime );
+                                bz_sendTextMessage(BZ_SERVER, BZ_ALLUSERS, "Wait. Where'd the player go? Player to be eliminated not found!");
+                                return;
+                            }
+
+                            // There are only two players left meaning the next one eliminated means the game is
+                            // Don't announce next elimination period
+                            if (bztk_getPlayerCount() == 2)
+                            {
+                                bz_sendTextMessagef(BZ_SERVER, BZ_ALLUSERS, "Player \"%s\" (score: %d) eliminated!", lastPlace->callsign.c_str(), (lastPlace->wins - lastPlace->losses));
                             }
                             else
                             {
-                                // Make a reference object of the player in last place
-                                std::unique_ptr<bz_BasePlayerRecord> lastPlace(bz_getPlayerByIndex(getPlayerWithLowestScore()));
-
-                                // The player doesn't exist for some reason
-                                if (!lastPlace)
-                                {
-                                    bz_sendTextMessage(BZ_SERVER, BZ_ALLUSERS, "Wait. Where'd the player go? Player to be eliminated not found!");
-                                    return;
-                                }
-
-                                // There are only two players left meaning the next one eliminated means the game is
-                                // Don't announce next elimination period
-                                if (bztk_getPlayerCount() == 2)
-                                {
-                                    bz_sendTextMessagef(BZ_SERVER, BZ_ALLUSERS, "Player \"%s\" (score: %d) eliminated!", lastPlace->callsign.c_str(), (lastPlace->wins - lastPlace->losses));
-                                }
-                                else
-                                {
-                                    bz_sendTextMessagef(BZ_SERVER, BZ_ALLUSERS, "Player \"%s\" (score: %d) eliminated! - next elimination in %d seconds", lastPlace->callsign.c_str(), (lastPlace->wins - lastPlace->losses), kickTime);
-                                }
-
-                                if (resetScoreOnElimination) // If we want to reset a player's score after each elimination
-                                {
-                                   bztk_foreachPlayer(resetPlayerScore);
-                                }
-
-                                // Swap them and clean up
-                                bztk_changeTeam(lastPlace->playerID, eObservers);
+                                bz_sendTextMessagef(BZ_SERVER, BZ_ALLUSERS, "Player \"%s\" (score: %d) eliminated! - next elimination in %d seconds", lastPlace->callsign.c_str(), (lastPlace->wins - lastPlace->losses), kickTime);
                             }
-                        }
-                        else // This is our first run, so no need to keep track any more
-                        {
-                            firstRun = false;
+
+                            if (resetScoreOnElimination) // If we want to reset a player's score after each elimination
+                            {
+                               bztk_foreachPlayer(resetPlayerScore);
+                            }
+
+                            // Swap them and clean up
+                            bztk_changeTeam(lastPlace->playerID, eObservers);
                         }
 
                         time(&lastEliminationTime); // Update last kick time
+                        firstRun = false;
                     }
                     else if (timeRemaining != 0 && timeRemaining % 15 == 0 && difftime(currentTime, lastCountdownCheck) > 1) // A multiple of 30 seconds is remaining
                     {
