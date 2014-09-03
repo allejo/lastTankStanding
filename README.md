@@ -50,23 +50,19 @@ Compiling
 
     `cd bzflag/plugins`
 
-3.  Create a plugin using the `newplug.sh` script.
-
-    `sh newplug.sh lastTankStanding`
-
-4.  Delete the newly create lastTankStanding directory.
-
-    `rm -rf lastTankStanding`
-
-5.  Run a git clone of this repository from within the plugins directory. This should have created a new lastTankStanding directory within the plugins directory.
+3.  Run a git clone of this repository from within the plugins directory. This should have created a new lastTankStanding directory within the plugins directory.
 
     `git clone https://github.com/allejo/lastTankStanding.git`
 
-6.  Now you will need to checkout the required submodules so the plugin has the proper dependencies so it can compile properly.
+4.  Create a plugin using the `addToBuild.sh` script.
+
+    `sh addToBuild.sh lastTankStanding`
+
+5.  Now you will need to checkout the required submodules so the plugin has the proper dependencies so it can compile properly.
 
     `cd lastTankStanding; git submodule update --init`
 
-7.  Instruct the build system to generate a Makefile and then compile and install the plugin.
+6.  Instruct the build system to generate a Makefile and then compile and install the plugin.
 
     `cd ../..; ./autogen.sh; ./configure; make; make install;`
     
