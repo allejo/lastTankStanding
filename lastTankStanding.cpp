@@ -30,7 +30,7 @@ const std::string PLUGIN_NAME = "Last Tank Standing";
 const int MAJOR = 1;
 const int MINOR = 0;
 const int REV = 3;
-const int BUILD = 57;
+const int BUILD = 60;
 
 // Switch players if they have idled too long or are paused for too long
 void checkIdleTime(int playerID)
@@ -526,7 +526,7 @@ bool lastTankStanding::SlashCommand(int playerID, bz_ApiString command, bz_ApiSt
                 countdownProgress = countdownLength;
             }
 
-            bz_sendTextMessagef(BZ_SERVER, BZ_ALLUSERS, "%s started a new game of Last Tank Standing. New players are now unable to join.", bz_getPlayerByIndex(playerID)->callsign.c_str());
+            bz_sendTextMessagef(BZ_SERVER, BZ_ALLUSERS, "%s started a new game of Last Tank Standing", bz_getPlayerByIndex(playerID)->callsign.c_str());
 
             // Reset scores and disable movement
             bztk_foreachPlayer(resetPlayerScore);
