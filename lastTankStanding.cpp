@@ -1,6 +1,6 @@
 /*
 Last Tank Standing
-    Copyright (C) 2013-2014 Vladimir Jimenez
+    Copyright (C) 2016 Vladimir "allejo" Jimenez
 
     This program is free software: you can redistribute it and/or modify
     it under the terms of the GNU General Public License as published by
@@ -18,28 +18,30 @@ Last Tank Standing
 
 #include <memory>
 #include <time.h>
+#include <vector>
 
 #include "bzfsAPI.h"
 #include "bztoolkit/bzToolkitAPI.h"
 #include "plugin_config.h"
 
 // Define plugin name
-const std::string PLUGIN_NAME = "Last Tank Standing";
+std::string PLUGIN_NAME = "Last Tank Standing";
 
 // Define plugin version numbering
-const int MAJOR = 1;
-const int MINOR = 0;
-const int REV = 3;
-const int BUILD = 60;
+int MAJOR = 1;
+int MINOR = 1;
+int REV = 0;
+int BUILD = 62;
 
 // Switch players if they have idled too long or are paused for too long
 void checkIdleTime(int playerID)
 {
-    // Check the amount of time a player has been idle or paused
+    // Check the amount of time a player has been idle or paused. We will automatically eliminate players if they idle for too long
     if (bz_getIdleTime(playerID) >= bz_getBZDBDouble("_ltsIdleKickTime"))
     {
-        // We will automatically eliminate players if they idle for too long
+        bz_killPlayer(playerID, false);
         bztk_changeTeam(playerID, eObservers);
+
         bz_sendTextMessagef(BZ_SERVER, playerID, "You have been automatically eliminated for idling too long.");
     }
 }
@@ -54,7 +56,6 @@ void resetPlayerScore(int playerID)
 // Loop through all the players and see who's not an observer
 int getLastTankStanding()
 {
-    // By default, we will select the winner to be -1
     int lastTankStanding = -1;
 
     // If there is more than one player playing, then that means we don't have the last tank standing
@@ -63,13 +64,11 @@ int getLastTankStanding()
         return lastTankStanding;
     }
 
-    // Get the list of all of the players in a smart pointer
-    std::shared_ptr<bz_APIIntList> playerList(bz_getPlayerIndexList());
+    std::unique_ptr<bz_APIIntList> playerList(bz_getPlayerIndexList());
 
     // Loop through all of the players in the list
     for (unsigned int i = 0; i < playerList->size(); i++)
     {
-        // If the player is not an observer, then that means we've found the last player standing
         if (bz_getPlayerByIndex(playerList->get(i))->team != eObservers)
         {
             lastTankStanding = playerList->get(i);
@@ -79,15 +78,12 @@ int getLastTankStanding()
     return lastTankStanding;
 }
 
-// Loop through all the players and find the one with the lowest score
 int getPlayerWithLowestScore()
 {
-    // Variables
     int playerWithLowestScore = -1;
     int lowestHighestScore = 99999;
     bool foundDuplicate = false;
 
-    // Get the list of all of the players in a smart pointer
     std::shared_ptr<bz_APIIntList> playerList(bz_getPlayerIndexList());
 
     for (unsigned int i = 0; i < playerList->size(); i++) // Loop through all the players
@@ -103,13 +99,8 @@ int getPlayerWithLowestScore()
         // If we a player's score is lower than the lowest score recorded
         if (playerScore < lowestHighestScore)
         {
-            // Set the new lowest score
             lowestHighestScore = playerScore;
-
-            // Save the player ID
             playerWithLowestScore = playerList->get(i);
-
-            // There are no duplicate scores
             foundDuplicate = false;
         }
         else if (playerScore == lowestHighestScore) // Someone has the same low score
@@ -130,7 +121,7 @@ int getPlayerWithLowestScore()
 class lastTankStanding : public bz_Plugin, bz_CustomSlashCommandHandler
 {
 public:
-    virtual const char* Name ();
+    virtual const char* Name () { return bztk_pluginName(); }
     virtual void Init (const char* config);
     virtual void Cleanup (void);
     virtual void Event (bz_EventData *eventData);
@@ -140,6 +131,10 @@ public:
     virtual void loadConfiguration (const char* configFile);
     virtual void disableMovement (void);
     virtual void enableMovement (void);
+
+    virtual void startRecording (void);
+    virtual void endRecording (void);
+    virtual void endGame (void);
 
     double
         bzdb_gravity,            // The default values of certain BZDB variables that we will change to disable movement
@@ -152,6 +147,8 @@ public:
         resetScoreOnElimination, // Whether or not to reset all of the players' scores after each elimination
         isCountdownInProgress,   // Whether or not the countdown to start the game is in progress
         isGameInProgress,        // Whether or not a current match is in progress
+        matchRecording,          // Whether or not a recording is in progress
+        recordMatch,             // Whether or not to record the LTS match
         firstRun;                // Whether or not this is the first loop in a game to prevent announcing the amount of
                                  //     seconds remaining until the kick at the start of the game
 
@@ -159,33 +156,32 @@ public:
         countdownProgress,       // The number of seconds still left in the countdown
         countdownLength,         // The duration the countdown for a new game should be
         idleKickTime,            // The number of seconds a player is allowed to idle before getting eliminated automatically
+        roundNumber,             // The current round number of elimination
         kickTime;                // The duration of each round for player elimination
 
     std::string
+        gameoverPermission,      // The server permission required to end a game
         startPermission,         // The server permission required to start a game
-        gameoverPermission;      // The server permission required to end a game
+        replayFileName;          // The file name used for the recording
 
     time_t
         lastCountdownCheck,      // The time stamp used to keep each number of the countdown exactly one second apart
         lastEliminationTime;     // The time stamp of the previous elimination of a player
+
+    struct RoundElimination
+    {
+        std::string
+            callsign;
+
+        int
+            rounds,
+            score;
+    };
+
+    std::vector<RoundElimination> eliminations;
 };
 
 BZ_PLUGIN(lastTankStanding)
-
-const char* lastTankStanding::Name (void)
-{
-    static std::string pluginBuild = "";
-
-    if (!pluginBuild.size())
-    {
-        std::ostringstream pluginBuildStream;
-
-        pluginBuildStream << PLUGIN_NAME << " " << MAJOR << "." << MINOR << "." << REV << " (" << BUILD << ")";
-        pluginBuild = pluginBuildStream.str();
-    }
-
-    return pluginBuild.c_str();
-}
 
 void lastTankStanding::Init(const char* commandLine)
 {
@@ -211,6 +207,7 @@ void lastTankStanding::Init(const char* commandLine)
     kickTime        = bztk_registerCustomIntBZDB("_ltsKickTime", 60);
     countdownLength = bztk_registerCustomIntBZDB("_ltsCountdown", 15);
     idleKickTime    = bztk_registerCustomIntBZDB("_ltsIdleKickTime", 30);
+    recordMatch     = bztk_registerCustomBoolBZDB("_ltsRecordMatch", false);
     resetScoreOnElimination = bztk_registerCustomBoolBZDB("_ltsResetScoreOnElimination", false);
 
     // Register custom slash commands
@@ -294,23 +291,6 @@ void lastTankStanding::Event(bz_EventData *eventData)
         {
             bz_GetAutoTeamEventData_V1* autoTeamData = (bz_GetAutoTeamEventData_V1*)eventData;
 
-            // Data
-            // ---
-            //    (int)           playerID  - ID of the player that is being added to the game.
-            //    (bz_ApiString)  callsign  - Callsign of the player that is being added to the game.
-            //    (bz_eTeamType)  team      - The team that the player will be added to. Initialized to the team chosen by the
-            //                                current server team rules, or the effects of a plug-in that has previously processed
-            //                                the event. Plug-ins wishing to override the team should set this value.
-            //    (bool)          handled   - The current state representing if other plug-ins have modified the default team.
-            //                                Plug-ins that modify the team should set this value to true to inform other plug-ins
-            //                                that have not processed yet.
-            //    (double)        eventTime - This value is the local server time of the event.
-
-            if (!autoTeamData)
-            {
-                return;
-            }
-
             // If a player tries to join during the middle of the game and they aren't joining the Observers team, then
             // let's automatically move them to the observers team
             if (isGameInProgress && autoTeamData->team != eObservers)
@@ -323,30 +303,6 @@ void lastTankStanding::Event(bz_EventData *eventData)
         }
         break;
 
-        case bz_ePlayerJoinEvent: // A player has joined
-        {
-            bz_PlayerJoinPartEventData_V1 *join = (bz_PlayerJoinPartEventData_V1 *)eventData;
-
-            // Data
-            // ---
-            //    (int)                   playerID  - The player ID that is joining
-            //    (bz_BasePlayerRecord*)  record    - The player record for the joining player
-            //    (double)                eventTime - Time of event.
-
-            // The player was disconnected before they could fully join so ignore them
-            if (!join || !join->record)
-            {
-                return;
-            }
-
-            // If they don't join the observer team while a game is in progress, switch them
-            if (join->record->team != eObservers && isGameInProgress)
-            {
-                bz_sendTextMessage(BZ_SERVER, join->playerID, "There is a currently a match in progress, you have automatically become an observer.");
-                bztk_changeTeam(join->playerID, eObservers);
-            }
-        }
-
         case bz_ePlayerPausedEvent: // This event is called each time a playing tank is paused
         {
             bz_PlayerPausedEventData_V1* pauseData = (bz_PlayerPausedEventData_V1*)eventData;
@@ -357,7 +313,7 @@ void lastTankStanding::Event(bz_EventData *eventData)
             //    (bool)    pause     - Whether the player is pausing (true) or unpausing (false)
             //    (double)  eventTime - Time local server time for the event.
 
-            std::shared_ptr<bz_BasePlayerRecord> pausedPlayer(bz_getPlayerByIndex(pauseData->playerID));
+            std::unique_ptr<bz_BasePlayerRecord> pausedPlayer(bz_getPlayerByIndex(pauseData->playerID));
 
             // If the player exists, is not an observer, is paused, and there's a game in progress, warn them.
             if (pausedPlayer && pausedPlayer->team != eObservers && pauseData->pause && isGameInProgress)
@@ -383,7 +339,9 @@ void lastTankStanding::Event(bz_EventData *eventData)
                     // If we've reached 0, the game has started!
                     if (countdownProgress < 1)
                     {
-                        // Set the variables
+                        // A BZDB variable that the 'mapchange' plug-in will respect when attempting to '/mapchange' during a LTS match
+                        bz_setBZDBBool("_mapchangeDisable", true, 2);
+
                         isCountdownInProgress = false;
                         isGameInProgress = true;
 
@@ -408,7 +366,7 @@ void lastTankStanding::Event(bz_EventData *eventData)
             {
                 if (bztk_getPlayerCount() > 1) // If there are more than one player playing...
                 {
-                    time_t currentTime; // Get the current time
+                    time_t currentTime;
                     time(&currentTime);
                     int timeRemaining = difftime(currentTime, lastEliminationTime); // Check how much time is remaining
 
@@ -428,7 +386,7 @@ void lastTankStanding::Event(bz_EventData *eventData)
                         else
                         {
                             // Make a reference object of the player in last place
-                            std::shared_ptr<bz_BasePlayerRecord> lastPlace(bz_getPlayerByIndex(getPlayerWithLowestScore()));
+                            std::unique_ptr<bz_BasePlayerRecord> lastPlace(bz_getPlayerByIndex(getPlayerWithLowestScore()));
 
                             // The player doesn't exist for some reason
                             if (!lastPlace)
@@ -448,19 +406,31 @@ void lastTankStanding::Event(bz_EventData *eventData)
                                 bz_sendTextMessagef(BZ_SERVER, BZ_ALLUSERS, "Player \"%s\" (score: %d) eliminated! - next elimination in %d seconds", lastPlace->callsign.c_str(), (lastPlace->wins - lastPlace->losses), kickTime);
                             }
 
-                            if (resetScoreOnElimination) // If we want to reset a player's score after each elimination
+                            // Save a record of their elimination
+                            RoundElimination record;
+
+                            record.callsign = lastPlace->callsign;
+                            record.score    = bz_getPlayerWins(lastPlace->playerID) - bz_getPlayerLosses(lastPlace->playerID);
+                            record.rounds   = roundNumber;
+
+                            eliminations.insert(eliminations.begin(), record);
+
+                            // If we want to reset a player's score after each elimination
+                            if (resetScoreOnElimination)
                             {
                                bztk_foreachPlayer(resetPlayerScore);
                             }
 
-                            // Swap them and clean up
+                            // Kill the player first to prevent them from getting kicked for being an observer trying to act like a player; then swap them
+                            bz_killPlayer(lastPlace->playerID, false);
                             bztk_changeTeam(lastPlace->playerID, eObservers);
                         }
 
                         time(&lastEliminationTime); // Update last kick time
+                        roundNumber++;
                         firstRun = false;
                     }
-                    else if (timeRemaining != 0 && timeRemaining % 15 == 0 && difftime(currentTime, lastCountdownCheck) > 1) // A multiple of 30 seconds is remaining
+                    else if (timeRemaining != 0 && timeRemaining % 15 == 0 && difftime(currentTime, lastCountdownCheck) > 1) // A multiple of 15 seconds is remaining
                     {
                         bz_sendTextMessagef(BZ_SERVER, BZ_ALLUSERS, "%d seconds until the next player elimination.", (kickTime - timeRemaining));
                         time(&lastCountdownCheck);
@@ -473,31 +443,24 @@ void lastTankStanding::Event(bz_EventData *eventData)
                 }
                 else if (bztk_getPlayerCount() == 1) // Only one player remaining
                 {
-                    // Make a reference
-                    std::shared_ptr<bz_BasePlayerRecord> lastTankStanding(bz_getPlayerByIndex(getLastTankStanding()));
+                    std::unique_ptr<bz_BasePlayerRecord> lastTankStanding(bz_getPlayerByIndex(getLastTankStanding()));
 
-                    // Where'd our player go? Meh
-                    if (!lastTankStanding)
+                    if (!lastTankStanding) // Where'd our player go? Meh
                     {
                         bz_sendTextMessage(BZ_SERVER, BZ_ALLUSERS, "What happened to our winner...?");
-                        return;
+                    }
+                    else // Announce the winner
+                    {
+                        bz_sendTextMessagef(BZ_SERVER, BZ_ALLUSERS, "Last Tank Standing is over! The winner is \"%s\".", lastTankStanding->callsign.c_str());
                     }
 
-                    // Announce the winner
-                    bz_sendTextMessagef(BZ_SERVER, BZ_ALLUSERS, "Last Tank Standing is over! The winner is \"%s\".", lastTankStanding->callsign.c_str());
-
-                    // Reset the variables
-                    isCountdownInProgress = false;
-                    isGameInProgress = false;
+                    endGame();
                 }
                 else
                 {
                     bz_sendTextMessagef(BZ_SERVER, BZ_ALLUSERS, "The current match was ended automatically with no winner.");
 
-                    // No players left and the game is still in progress
-                    isCountdownInProgress = false;
-                    isGameInProgress = false;
-                    enableMovement();
+                    endGame();
                 }
             }
         }
@@ -513,9 +476,10 @@ bool lastTankStanding::SlashCommand(int playerID, bz_ApiString command, bz_ApiSt
         if (!isGameInProgress && !isCountdownInProgress && bztk_getPlayerCount() > 2) // No game in progress, start one!
         {
             // Setup variables and stuff
-            firstRun = true;
-            isCountdownInProgress = true;
             time(&lastCountdownCheck);
+            isCountdownInProgress = true;
+            roundNumber = 1;
+            firstRun = true;
 
             if (params->size() > 0 && atoi(params->get(0).c_str()) >= 15)
             {
@@ -525,6 +489,8 @@ bool lastTankStanding::SlashCommand(int playerID, bz_ApiString command, bz_ApiSt
             {
                 countdownProgress = countdownLength;
             }
+
+            startRecording();
 
             bz_sendTextMessagef(BZ_SERVER, BZ_ALLUSERS, "%s started a new game of Last Tank Standing", bz_getPlayerByIndex(playerID)->callsign.c_str());
 
@@ -554,12 +520,7 @@ bool lastTankStanding::SlashCommand(int playerID, bz_ApiString command, bz_ApiSt
         {
             bz_sendTextMessagef(BZ_SERVER, BZ_ALLUSERS, "%s has ended the current game of Last Tank Standing.", bz_getPlayerByIndex(playerID)->callsign.c_str());
 
-            // Reset variables
-            isCountdownInProgress = false;
-            isGameInProgress = false;
-
-            // Allow tanks to move just in case
-            enableMovement();
+            endGame();
         }
         else // No game to end, silly admin
         {
@@ -575,6 +536,8 @@ bool lastTankStanding::SlashCommand(int playerID, bz_ApiString command, bz_ApiSt
         bz_sendTextMessagef(BZ_SERVER, playerID, "You do not have permission to use the /%s command.", command.c_str());
         return true;
     }
+
+    return false;
 }
 
 void lastTankStanding::loadConfiguration(const char* configFile)
@@ -623,10 +586,52 @@ void lastTankStanding::disableMovement()
 // Enable tanks to move and shoot again
 void lastTankStanding::enableMovement()
 {
-    // Reset BZDB variables from stored values to enable movement
     bz_setBZDBDouble("_gravity", bzdb_gravity);
     bz_setBZDBDouble("_jumpVelocity", bzdb_jumpVelocity);
     bz_setBZDBDouble("_reloadTime", bzdb_reloadTime);
     bz_setBZDBDouble("_tankAngVel", bzdb_tankAngVel);
     bz_setBZDBDouble("_tankSpeed", bzdb_tankSpeed);
+}
+
+void lastTankStanding::startRecording()
+{
+    if (recordMatch)
+    {
+        matchRecording = bz_startRecBuf();
+
+        bz_Time time;
+        bz_getLocaltime(&time);
+
+        char temp[512];
+        sprintf(temp,"lts-%d%02d%02d-%02d%02d%02d.rec",
+                time.year,time.month,time.day,
+                time.hour,time.minute,time.second);
+
+        replayFileName = temp;
+    }
+}
+
+void lastTankStanding::endRecording()
+{
+    if (recordMatch && matchRecording)
+    {
+        bz_saveRecBuf(replayFileName.c_str());
+        bz_stopRecBuf();
+
+        matchRecording = false;
+        bz_sendTextMessagef(BZ_SERVER, BZ_ALLUSERS, "LTS replay saved as: %s", replayFileName.c_str());
+    }
+}
+
+void lastTankStanding::endGame()
+{
+    bz_setBZDBBool("_mapchangeDisable", false, 2);
+
+    isCountdownInProgress = false;
+    isGameInProgress = false;
+    roundNumber = 0;
+
+    eliminations.clear();
+    enableMovement();
+    endRecording();
 }
