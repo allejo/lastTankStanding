@@ -22,10 +22,12 @@ If you would like to override the default permissions required for /start and /e
 
 ### Custom BZDB Variables
 
+```
 _ltsKickTime
 _ltsCountdown
 _ltsIdleKickTime
 _ltsResetScoreOnElimination
+```
 
 _ltsKickTime
 
@@ -85,6 +87,11 @@ GAME_START_PERM
 
 - Default: ban
 - Description: The permission required for the /start command.
+
+RECORD_MATCHES
+
+- Default: false
+- Description: Whether or not to record LTS matches and save them as replays
 
 License
 -------

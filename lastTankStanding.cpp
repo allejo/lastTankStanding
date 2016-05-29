@@ -122,6 +122,12 @@ int getPlayerWithLowestScore()
     return playerWithLowestScore;
 }
 
+// Convert a string representation of a boolean to a boolean
+static bool toBool (std::string str)
+{
+    return !str.empty() && (strcasecmp(str.c_str (), "true") == 0 || atoi(str.c_str ()) != 0);
+}
+
 class lastTankStanding : public bz_Plugin, bz_CustomSlashCommandHandler
 {
 public:
@@ -211,7 +217,6 @@ void lastTankStanding::Init(const char* commandLine)
     kickTime        = bztk_registerCustomIntBZDB("_ltsKickTime", 60);
     countdownLength = bztk_registerCustomIntBZDB("_ltsCountdown", 15);
     idleKickTime    = bztk_registerCustomIntBZDB("_ltsIdleKickTime", 30);
-    recordMatch     = bztk_registerCustomBoolBZDB("_ltsRecordMatch", false);
     resetScoreOnElimination = bztk_registerCustomBoolBZDB("_ltsResetScoreOnElimination", false);
 
     // Register custom slash commands
@@ -235,12 +240,6 @@ void lastTankStanding::Event(bz_EventData *eventData)
         case bz_eBZDBChange: // A BZDB variable is changed
         {
             bz_BZDBChangeData_V1* bzdbChange = (bz_BZDBChangeData_V1*)eventData;
-
-            // Data
-            // ---
-            //    (bz_ApiString)  key       - The variable that was changed
-            //    (bz_ApiString)  value     - What the variable was changed too
-            //    (double)        eventTime - This value is the local server time of the event.
 
             // Check if one of our LTS variables were changed
             if (bzdbChange->key == "_ltsKickTime")
@@ -280,7 +279,7 @@ void lastTankStanding::Event(bz_EventData *eventData)
             }
             else if (bzdbChange->key == "_ltsResetScoreOnElimination")
             {
-                if (bzdbChange->value == "1" || bzdbChange->value == "true")
+                if (bzdbChange->value == "1" || bzdbChange->value == "true" || bzdbChange->value == "on")
                 {
                     resetScoreOnElimination = true;
                 }
@@ -310,12 +309,6 @@ void lastTankStanding::Event(bz_EventData *eventData)
         case bz_ePlayerPausedEvent: // This event is called each time a playing tank is paused
         {
             bz_PlayerPausedEventData_V1* pauseData = (bz_PlayerPausedEventData_V1*)eventData;
-
-            // Data
-            // ---
-            //    (int)     playerID  - ID of the player who paused.
-            //    (bool)    pause     - Whether the player is pausing (true) or unpausing (false)
-            //    (double)  eventTime - Time local server time for the event.
 
             std::unique_ptr<bz_BasePlayerRecord> pausedPlayer(bz_getPlayerByIndex(pauseData->playerID));
 
@@ -560,6 +553,7 @@ void lastTankStanding::loadConfiguration(const char* configFile)
         }
         else
         {
+            recordMatch        = toBool(config.item(section, "RECORD_MATCHES"));
             startPermission    = config.item(section, "GAME_START_PERM");
             gameoverPermission = config.item(section, "GAME_END_PERM");
         }
@@ -617,7 +611,7 @@ void lastTankStanding::startRecording()
 
 void lastTankStanding::endRecording()
 {
-    if (recordMatch && matchRecording)
+    if (matchRecording)
     {
         bz_saveRecBuf(replayFileName.c_str());
         bz_stopRecBuf();
