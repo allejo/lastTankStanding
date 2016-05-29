@@ -43,7 +43,6 @@ void checkIdleTime(int playerID)
     // Check the amount of time a player has been idle or paused. We will automatically eliminate players if they idle for too long
     if (bz_getIdleTime(playerID) >= bz_getBZDBDouble("_ltsIdleKickTime"))
     {
-        bz_killPlayer(playerID, false);
         bztk_changeTeam(playerID, eObservers);
 
         bz_sendTextMessagef(BZ_SERVER, playerID, "You have been automatically eliminated for idling too long.");
@@ -418,8 +417,6 @@ void lastTankStanding::Event(bz_EventData *eventData)
                                bztk_foreachPlayer(resetPlayerScore);
                             }
 
-                            // Kill the player first to prevent them from getting kicked for being an observer trying to act like a player; then swap them
-                            bz_killPlayer(lastPlace->playerID, false);
                             bztk_changeTeam(lastPlace->playerID, eObservers);
                         }
 
