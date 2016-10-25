@@ -422,7 +422,7 @@ void lastTankStanding::Event(bz_EventData *eventData)
                             record.score    = bz_getPlayerWins(lastPlace->playerID) - bz_getPlayerLosses(lastPlace->playerID);
                             record.rounds   = roundNumber;
 
-                            eliminations.insert(eliminations.begin(), record);
+                            eliminations.push_back(record);
 
                             // If we want to reset a player's score after each elimination
                             if (resetScoreOnElimination)
@@ -461,6 +461,21 @@ void lastTankStanding::Event(bz_EventData *eventData)
                         bz_sendTextMessagef(BZ_SERVER, BZ_ALLUSERS, "Last Tank Standing is over! The winner is \"%s\".", lastTankStanding->callsign.c_str());
                     }
 
+                    // Display the leaderboard for the LTS match
+                    std::reverse(eliminations.begin(), eliminations.end());
+
+                    bz_sendTextMessage(BZ_SERVER, BZ_ALLUSERS, "Last Tank Standing Scoreboard");
+                    bz_sendTextMessage(BZ_SERVER, BZ_ALLUSERS, "-----------------------------");
+
+                    int position = 1;
+
+                    for (auto &player : eliminations)
+                    {
+                        bz_sendTextMessagef(BZ_SERVER, BZ_ALLUSERS, "%02d. %s", position, player.callsign.c_str());
+                        bz_sendTextMessagef(BZ_SERVER, BZ_ALLUSERS, "    Rounds: %d, Elimination Score: %d", player.rounds, player.score);
+                        position++;
+                    }
+
                     endGame();
                 }
                 else
@@ -472,7 +487,8 @@ void lastTankStanding::Event(bz_EventData *eventData)
             }
         }
 
-        default: break;
+        default:
+            break;
     }
 }
 
