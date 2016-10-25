@@ -221,6 +221,19 @@ void lastTankStanding::Init(const char* commandLine)
     // Register custom slash commands
     bz_registerCustomSlashCommand("start", this);
     bz_registerCustomSlashCommand("end", this);
+
+    // Sanity checks/warnings for server owners
+    if (bz_getGameType() != eFFAGame || bz_getGameType() != eOpenFFAGame)
+    {
+        bz_debugMessage(0, "WARNING :: Last Tank Standing :: This server is not configured as FFA or OpenFFA; this may lead to unexpected behavior.");
+    }
+
+    if (bz_isTimeManualStart())
+    {
+        bz_debugMessage(0, "WARNING :: Last Tank Standing :: This server is configured with '-timemanual'; this may lead to unexpected behavior. This plug-in");
+        bz_debugMessage(0, "                                 has its own countdown functionality and does not rely on '-timemanual'. Use the _ltsKickTime BZDB");
+        bz_debugMessage(0, "                                 variable instead.");
+    }
 }
 
 void lastTankStanding::Cleanup(void)
