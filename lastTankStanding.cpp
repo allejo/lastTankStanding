@@ -221,7 +221,7 @@ void lastTankStanding::Init(const char* commandLine)
 
     // Register custom slash commands
     bz_registerCustomSlashCommand("start", this);
-    bz_registerCustomSlashCommand("end", this);
+    bz_registerCustomSlashCommand("gameover", this);
 
     // Sanity checks/warnings for server owners
     if (bz_getGameType() != eFFAGame || bz_getGameType() != eOpenFFAGame)
@@ -243,7 +243,7 @@ void lastTankStanding::Cleanup(void)
 
     // Remove our commands
     bz_removeCustomSlashCommand("start");
-    bz_removeCustomSlashCommand("end");
+    bz_removeCustomSlashCommand("gameover");
 }
 
 void lastTankStanding::Event(bz_EventData *eventData)
@@ -538,7 +538,7 @@ bool lastTankStanding::SlashCommand(int playerID, bz_ApiString command, bz_ApiSt
 
         return true;
     }
-    else if (command == "end" && bz_hasPerm(playerID, gameoverPermission.c_str())) // Check the permission requirements, by default only admins can end a game
+    else if (command == "gameover" && bz_hasPerm(playerID, gameoverPermission.c_str())) // Check the permission requirements, by default only admins can end a game
     {
         if (isGameInProgress || isCountdownInProgress) // If there's a game to end, end it
         {
@@ -555,7 +555,7 @@ bool lastTankStanding::SlashCommand(int playerID, bz_ApiString command, bz_ApiSt
     }
 
     // No permission to execute these commands. Shame on them!
-    if (command == "start" || command == "end")
+    if (command == "start" || command == "gameover")
     {
         bz_sendTextMessagef(BZ_SERVER, playerID, "You do not have permission to use the /%s command.", command.c_str());
         return true;
