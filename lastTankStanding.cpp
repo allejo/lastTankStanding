@@ -84,7 +84,7 @@ int getLastTankStanding()
 int getPlayerWithLowestScore()
 {
     int playerWithLowestScore = -1;
-    int lowestHighestScore = 99999;
+    int lowestPlayerScore = 99999;
     bool foundDuplicate = false;
 
     std::shared_ptr<bz_APIIntList> playerList(bz_getPlayerIndexList());
@@ -100,13 +100,13 @@ int getPlayerWithLowestScore()
         int playerScore = bz_getPlayerWins(playerList->get(i)) - bz_getPlayerLosses(playerList->get(i));
 
         // If we a player's score is lower than the lowest score recorded
-        if (playerScore < lowestHighestScore)
+        if (playerScore < lowestPlayerScore)
         {
-            lowestHighestScore = playerScore;
+            lowestPlayerScore = playerScore;
             playerWithLowestScore = playerList->get(i);
             foundDuplicate = false;
         }
-        else if (playerScore == lowestHighestScore) // Someone has the same low score
+        else if (playerScore == lowestPlayerScore) // Someone has the same low score
         {
             foundDuplicate = true;
         }
@@ -494,9 +494,21 @@ void lastTankStanding::Event(bz_EventData *eventData)
 
 bool lastTankStanding::SlashCommand(int playerID, bz_ApiString command, bz_ApiString /*message*/, bz_APIStringList *params)
 {
-    if (command == "start" && bz_hasPerm(playerID, startPermission.c_str())) // Check the permissions, by default any registered players can start a game
+    if (command == "start" && bz_hasPerm(playerID, startPermission.c_str())) // Check the permissions, by default any player with voting permissions can start a game
     {
-        if (!isGameInProgress && !isCountdownInProgress && bztk_getPlayerCount() > 2) // No game in progress, start one!
+        if (isCountdownInProgress)
+        {
+            bz_sendTextMessage(BZ_SERVER, playerID, "There is already a countdown in progress.");
+        }
+        else if (isGameInProgress)
+        {
+            bz_sendTextMessage(BZ_SERVER, playerID, "There is already a game of Last Tank Standing in progress.");
+        }
+        else if (bztk_getPlayerCount() <= 2)
+        {
+            bz_sendTextMessage(BZ_SERVER, playerID, "More than 2 players are required to play a game of Last Tank Standing.");
+        }
+        else
         {
             // Setup variables and stuff
             time(&lastCountdownCheck);
@@ -522,18 +534,6 @@ bool lastTankStanding::SlashCommand(int playerID, bz_ApiString command, bz_ApiSt
             bz_sendTextMessagef(BZ_SERVER, BZ_ALLUSERS, "All scores have been reset.");
             disableMovement();
         }
-        else if (isCountdownInProgress)
-        {
-            bz_sendTextMessage(BZ_SERVER, playerID, "There is already a countdown in progress.");
-        }
-        else if (isGameInProgress)
-        {
-            bz_sendTextMessage(BZ_SERVER, playerID, "There is already a game of Last Tank Standing in progress.");
-        }
-        else if (bztk_getPlayerCount() <= 2)
-        {
-            bz_sendTextMessage(BZ_SERVER, playerID, "More than 2 players are required to play a game of Last Tank Standing.");
-        }
 
         return true;
     }
@@ -541,7 +541,7 @@ bool lastTankStanding::SlashCommand(int playerID, bz_ApiString command, bz_ApiSt
     {
         if (isGameInProgress || isCountdownInProgress) // If there's a game to end, end it
         {
-            bz_sendTextMessagef(BZ_SERVER, BZ_ALLUSERS, "%s has ended the current game of Last Tank Standing.", bz_getPlayerByIndex(playerID)->callsign.c_str());
+            bz_sendTextMessagef(BZ_SERVER, BZ_ALLUSERS, "%s has ended the current game of Last Tank Standing.", bz_getPlayerCallsign(playerID));
 
             endGame();
         }
@@ -565,8 +565,9 @@ bool lastTankStanding::SlashCommand(int playerID, bz_ApiString command, bz_ApiSt
 
 void lastTankStanding::loadConfiguration(const char* configFile)
 {
-    startPermission     = "vote";
-    gameoverPermission  = "endgame";
+    recordMatch        = false;
+    startPermission    = "vote";
+    gameoverPermission = "endgame";
 
     if (configFile && configFile[0] != '\0')
     {
@@ -587,6 +588,7 @@ void lastTankStanding::loadConfiguration(const char* configFile)
 
     bz_debugMessagef(2, "DEBUG :: Last Tank Standing :: The /start command requires the '%s' permission.", startPermission.c_str());
     bz_debugMessagef(2, "DEBUG :: Last Tank Standing :: The /end command requires the '%s' permission.", gameoverPermission.c_str());
+    bz_debugMessagef(2, "DEBUG :: Last Tank Standing :: LTS Matches %s be recored", (recordMatch) ? "will be" : "will not be");
 }
 
 // Disable tanks from movement and shooting
