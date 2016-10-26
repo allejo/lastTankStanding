@@ -462,6 +462,15 @@ void lastTankStanding::Event(bz_EventData *eventData)
                         bz_sendTextMessagef(BZ_SERVER, BZ_ALLUSERS, "Last Tank Standing is over! The winner is \"%s\".", lastTankStanding->callsign.c_str());
                     }
 
+                    // Save a record of the last tank standing
+                    RoundElimination record;
+
+                    record.callsign = lastTankStanding->callsign;
+                    record.score    = bz_getPlayerWins(lastTankStanding->playerID) - bz_getPlayerLosses(lastTankStanding->playerID);
+                    record.rounds   = roundNumber;
+
+                    eliminations.push_back(record);
+
                     // Display the leaderboard for the LTS match
                     std::reverse(eliminations.begin(), eliminations.end());
 
