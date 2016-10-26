@@ -224,7 +224,7 @@ void lastTankStanding::Init(const char* commandLine)
     bz_registerCustomSlashCommand("gameover", this);
 
     // Sanity checks/warnings for server owners
-    if (bz_getGameType() != eFFAGame || bz_getGameType() != eOpenFFAGame)
+    if (bz_getGameType() != eFFAGame && bz_getGameType() != eOpenFFAGame)
     {
         bz_debugMessage(0, "WARNING :: Last Tank Standing :: This server is not configured as FFA or OpenFFA; this may lead to unexpected behavior.");
     }
