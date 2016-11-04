@@ -718,7 +718,7 @@ void lastTankStanding::startRecording()
 
 void lastTankStanding::endRecording()
 {
-    if (matchRecording)
+    if (recordMatch && matchRecording)
     {
         bz_saveRecBuf(replayFileName.c_str());
         bz_stopRecBuf();
