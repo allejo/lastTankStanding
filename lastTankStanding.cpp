@@ -232,6 +232,15 @@ void lastTankStanding::Init(const char* commandLine)
         bz_debugMessage(0, "WARNING :: Last Tank Standing :: This server is not configured as FFA or OpenFFA; this may lead to unexpected behavior.");
     }
 
+    if (bz_getGameType() == eFFAGame)
+    {
+        if (bz_getTeamPlayerLimit(eRedTeam)  > 0 || bz_getTeamPlayerLimit(eGreenTeam)  > 0 ||
+            bz_getTeamPlayerLimit(eBlueTeam) > 0 || bz_getTeamPlayerLimit(ePurpleTeam) > 0)
+        {
+            bz_debugMessage(0, "WARNING :: Last Tank Standing :: This server is configured with regular teams, an FFA server should only be configured with Rogue players.");
+        }
+    }
+
     if (bz_isTimeManualStart())
     {
         bz_debugMessage(0, "WARNING :: Last Tank Standing :: This server is configured with '-timemanual'; this may lead to unexpected behavior. This plug-in");
