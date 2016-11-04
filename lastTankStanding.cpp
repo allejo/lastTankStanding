@@ -36,7 +36,7 @@ std::string PLUGIN_NAME = "Last Tank Standing";
 int MAJOR = 1;
 int MINOR = 1;
 int REV = 0;
-int BUILD = 76;
+int BUILD = 80;
 
 // A function that will reset the score for a specific player
 void resetPlayerScore(int playerID)
