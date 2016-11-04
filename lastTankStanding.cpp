@@ -36,19 +36,7 @@ std::string PLUGIN_NAME = "Last Tank Standing";
 int MAJOR = 1;
 int MINOR = 1;
 int REV = 0;
-int BUILD = 62;
-
-// Switch players if they have idled too long or are paused for too long
-void checkIdleTime(int playerID)
-{
-    // Check the amount of time a player has been idle or paused. We will automatically eliminate players if they idle for too long
-    if (bz_getIdleTime(playerID) >= bz_getBZDBDouble("_ltsIdleKickTime"))
-    {
-        bztk_changeTeam(playerID, eObservers);
-
-        bz_sendTextMessagef(BZ_SERVER, playerID, "You have been automatically eliminated for idling too long.");
-    }
-}
+int BUILD = 76;
 
 // A function that will reset the score for a specific player
 void resetPlayerScore(int playerID)
@@ -131,16 +119,26 @@ static bool toBool (std::string str)
 class lastTankStanding : public bz_Plugin, bz_CustomSlashCommandHandler
 {
 public:
+    enum EliminationReason
+    {
+        eLowScore = 0, // A player is eliminated for having the lowest score at the end of the round
+        eIdleTime = 1, // A player is eliminated for idling too long
+        eForfeit = 2,  // A player is eliminated for leaving the match
+        eKick = 3,     // A player is eliminated by an admin for being kicked
+        eWinner = 4    // A player is "eliminated" for being the winner of the match
+    };
+
     virtual const char* Name () { return bztk_pluginName(); }
     virtual void Init (const char* config);
     virtual void Cleanup (void);
     virtual void Event (bz_EventData *eventData);
-
     virtual bool SlashCommand (int playerID, bz_ApiString, bz_ApiString, bz_APIStringList*);
 
     virtual void loadConfiguration (const char* configFile);
+    virtual void eliminatePlayer (unsigned int playerID, EliminationReason reason);
     virtual void disableMovement (void);
     virtual void enableMovement (void);
+    virtual void checkIdleTime (unsigned int playerID);
 
     virtual void startRecording (void);
     virtual void endRecording (void);
@@ -180,6 +178,9 @@ public:
 
     struct RoundElimination
     {
+        EliminationReason
+            reason;
+
         std::string
             callsign;
 
@@ -205,8 +206,10 @@ void lastTankStanding::Init(const char* commandLine)
     // Register our events with Register()
     Register(bz_eBZDBChange);
     Register(bz_eGetAutoTeamEvent);
+    Register(bz_eKickEvent);
     Register(bz_ePlayerJoinEvent);
     Register(bz_ePlayerPausedEvent);
+    Register(bz_ePlayerPartEvent);
     Register(bz_eTickEvent);
 
     // Because the team swapping code is far from ideal, there are some issues with tanks moving as observers and getting
@@ -319,6 +322,14 @@ void lastTankStanding::Event(bz_EventData *eventData)
         }
         break;
 
+        case bz_eKickEvent:
+        {
+            bz_KickEventData_V1* kickData = (bz_KickEventData_V1*)eventData;
+
+            eliminatePlayer(kickData->kickedID, eKick);
+        }
+        break;
+
         case bz_ePlayerPausedEvent: // This event is called each time a playing tank is paused
         {
             bz_PlayerPausedEventData_V1* pauseData = (bz_PlayerPausedEventData_V1*)eventData;
@@ -333,6 +344,13 @@ void lastTankStanding::Event(bz_EventData *eventData)
             }
         }
         break;
+
+        case bz_ePlayerPartEvent:
+        {
+            bz_PlayerJoinPartEventData_V1* partData = (bz_PlayerJoinPartEventData_V1*)eventData;
+
+            eliminatePlayer(partData->playerID, eForfeit);
+        }
 
         case bz_eTickEvent: // Server tick cycle
         {
@@ -383,7 +401,12 @@ void lastTankStanding::Event(bz_EventData *eventData)
                     // Check whether or not to eliminate a player for idling too long
                     if (!firstRun)
                     {
-                        bztk_foreachPlayer(checkIdleTime);
+                        std::unique_ptr<bz_APIIntList> playerList(bz_getPlayerIndexList());
+
+                        for (unsigned int i = 0; i < playerList->size(); i++)
+                        {
+                            checkIdleTime(playerList->get(i));
+                        }
                     }
 
                     if (timeRemaining >= kickTime) // If we've reached the time to eliminate someone
@@ -416,14 +439,7 @@ void lastTankStanding::Event(bz_EventData *eventData)
                                 bz_sendTextMessagef(BZ_SERVER, BZ_ALLUSERS, "Player \"%s\" (score: %d) eliminated! - next elimination in %d seconds", lastPlace->callsign.c_str(), (lastPlace->wins - lastPlace->losses), kickTime);
                             }
 
-                            // Save a record of their elimination
-                            RoundElimination record;
-
-                            record.callsign = lastPlace->callsign;
-                            record.score    = bz_getPlayerWins(lastPlace->playerID) - bz_getPlayerLosses(lastPlace->playerID);
-                            record.rounds   = roundNumber;
-
-                            eliminations.push_back(record);
+                            eliminatePlayer(lastPlace->playerID, eLowScore);
 
                             // If we want to reset a player's score after each elimination
                             if (resetScoreOnElimination)
@@ -462,18 +478,13 @@ void lastTankStanding::Event(bz_EventData *eventData)
                         bz_sendTextMessagef(BZ_SERVER, BZ_ALLUSERS, "Last Tank Standing is over! The winner is \"%s\".", lastTankStanding->callsign.c_str());
                     }
 
-                    // Save a record of the last tank standing
-                    RoundElimination record;
+                    // We need to eliminate the winner so we can compleate the scoreboard. Strange concept, I know.
+                    eliminatePlayer(lastTankStanding->playerID, eWinner);
 
-                    record.callsign = lastTankStanding->callsign;
-                    record.score    = bz_getPlayerWins(lastTankStanding->playerID) - bz_getPlayerLosses(lastTankStanding->playerID);
-                    record.rounds   = roundNumber;
-
-                    eliminations.push_back(record);
-
-                    // Display the leaderboard for the LTS match
+                    // Reverse the order of the elimination record so we can get the most recent first
                     std::reverse(eliminations.begin(), eliminations.end());
 
+                    // Display the leaderboard for the LTS match
                     bz_sendTextMessage(BZ_SERVER, BZ_ALLUSERS, "Last Tank Standing Scoreboard");
                     bz_sendTextMessage(BZ_SERVER, BZ_ALLUSERS, "-----------------------------");
 
@@ -482,7 +493,30 @@ void lastTankStanding::Event(bz_EventData *eventData)
                     for (auto &player : eliminations)
                     {
                         bz_sendTextMessagef(BZ_SERVER, BZ_ALLUSERS, "%02d. %s", position, player.callsign.c_str());
-                        bz_sendTextMessagef(BZ_SERVER, BZ_ALLUSERS, "    Rounds: %d, Elimination Score: %d", player.rounds, player.score);
+
+                        switch (player.reason)
+                        {
+                            case eWinner:
+                            case eLowScore:
+                            {
+                                bz_sendTextMessagef(BZ_SERVER, BZ_ALLUSERS, "    Rounds: %d, Elimination Score: %d", player.rounds, player.score);
+                            }
+                            break;
+
+                            case eForfeit:
+                            case eIdleTime:
+                            {
+                                bz_sendTextMessagef(BZ_SERVER, BZ_ALLUSERS, "    Rounds: %d, Elimination Score: %d [Forfeit]", player.rounds, player.score);
+                            }
+                            break;
+
+                            case eKick:
+                            {
+                                bz_sendTextMessagef(BZ_SERVER, BZ_ALLUSERS, "    Rounds: %d, Elimination Score: %d [Disqualified]", player.rounds, player.score);
+                            }
+                            break;
+                        }
+
                         position++;
                     }
 
@@ -601,6 +635,18 @@ void lastTankStanding::loadConfiguration(const char* configFile)
     bz_debugMessagef(2, "DEBUG :: Last Tank Standing :: LTS Matches %s be recored", (recordMatch) ? "will be" : "will not be");
 }
 
+void lastTankStanding::eliminatePlayer(unsigned int playerID, EliminationReason reason)
+{
+    RoundElimination record;
+
+    record.callsign = bz_getPlayerCallsign(playerID);
+    record.score    = bz_getPlayerWins(playerID) - bz_getPlayerLosses(playerID);
+    record.rounds   = roundNumber;
+    record.reason   = reason;
+
+    eliminations.push_back(record);
+}
+
 // Disable tanks from movement and shooting
 void lastTankStanding::disableMovement()
 {
@@ -627,6 +673,20 @@ void lastTankStanding::enableMovement()
     bz_setBZDBDouble("_reloadTime", bzdb_reloadTime);
     bz_setBZDBDouble("_tankAngVel", bzdb_tankAngVel);
     bz_setBZDBDouble("_tankSpeed", bzdb_tankSpeed);
+}
+
+
+// Switch players if they have idled too long or are paused for too long
+void lastTankStanding::checkIdleTime(unsigned int playerID)
+{
+    // Check the amount of time a player has been idle or paused. We will automatically eliminate players if they idle for too long
+    if (bz_getIdleTime(playerID) >= bz_getBZDBDouble("_ltsIdleKickTime"))
+    {
+        bztk_changeTeam(playerID, eObservers);
+        eliminatePlayer(playerID, eIdleTime);
+
+        bz_sendTextMessagef(BZ_SERVER, playerID, "You have been automatically eliminated for idling too long.");
+    }
 }
 
 void lastTankStanding::startRecording()
