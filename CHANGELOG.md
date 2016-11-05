@@ -49,9 +49,9 @@
 
 **New**
 
-- New Supports optional configuration file to specify permissions for the /start and /end commands without modifying the source code of the plugin.
-- New Automatically kick paused or idling players trying to save their score
-- New Use of updated bzToolkit version
+- Supports optional configuration file to specify permissions for the /start and /end commands without modifying the source code of the plugin.
+- Automatically kick paused or idling players trying to save their score
+- Use of updated bzToolkit version
 
 **Fixed**
 
