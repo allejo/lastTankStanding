@@ -1,5 +1,12 @@
 # Changelog
 
+## 1.1.1
+
+**Fixes**
+
+- Only eliminate players if they part or are kicked from a non-observer team
+- Final scoreboard will no longer have incorrect players listed
+
 ## 1.1.0
 
 **New**
