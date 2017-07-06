@@ -35,8 +35,8 @@ std::string PLUGIN_NAME = "Last Tank Standing";
 // Define plugin version numbering
 int MAJOR = 1;
 int MINOR = 1;
-int REV = 0;
-int BUILD = 80;
+int REV = 1;
+int BUILD = 82;
 
 // A function that will reset the score for a specific player
 void resetPlayerScore(int playerID)
@@ -335,7 +335,21 @@ void lastTankStanding::Event(bz_EventData *eventData)
         {
             bz_KickEventData_V1* kickData = (bz_KickEventData_V1*)eventData;
 
-            eliminatePlayer(kickData->kickedID, eKick);
+            if (isGameInProgress && bz_getPlayerTeam(kickData->kickedID) != eObservers)
+            {
+                eliminatePlayer(kickData->kickedID, eKick);
+            }
+        }
+        break;
+
+        case bz_ePlayerJoinEvent:
+        {
+            bz_PlayerJoinPartEventData_V1* joinData = (bz_PlayerJoinPartEventData_V1*)eventData;
+
+            if (isGameInProgress)
+            {
+                bz_sendTextMessagef(BZ_SERVER, joinData->playerID, "There is a current a match in progress, please be respectful.");
+            }
         }
         break;
 
@@ -358,7 +372,10 @@ void lastTankStanding::Event(bz_EventData *eventData)
         {
             bz_PlayerJoinPartEventData_V1* partData = (bz_PlayerJoinPartEventData_V1*)eventData;
 
-            eliminatePlayer(partData->playerID, eForfeit);
+            if (isGameInProgress && partData->record->team != eObservers)
+            {
+                eliminatePlayer(partData->playerID, eForfeit);
+            }
         }
 
         case bz_eTickEvent: // Server tick cycle
