@@ -657,7 +657,7 @@ void lastTankStanding::loadConfiguration(const char* configFile)
     }
 
     bz_debugMessagef(2, "DEBUG :: Last Tank Standing :: The /start command requires the '%s' permission.", startPermission.c_str());
-    bz_debugMessagef(2, "DEBUG :: Last Tank Standing :: The /end command requires the '%s' permission.", gameoverPermission.c_str());
+    bz_debugMessagef(2, "DEBUG :: Last Tank Standing :: The /gameover command requires the '%s' permission.", gameoverPermission.c_str());
     bz_debugMessagef(2, "DEBUG :: Last Tank Standing :: LTS Matches %s be recored", (recordMatch) ? "will be" : "will not be");
 }
 
