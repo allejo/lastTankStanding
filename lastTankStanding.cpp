@@ -394,7 +394,7 @@ void lastTankStanding::Event(bz_EventData *eventData)
                     if (countdownProgress < 1)
                     {
                         // A BZDB variable that the 'mapchange' plug-in will respect when attempting to '/mapchange' during a LTS match
-                        bz_setBZDBBool("_mapchangeDisable", true, 2);
+                        bz_updateBZDBBool("_mapchangeDisable", true);
 
                         isCountdownInProgress = false;
                         isGameInProgress = true;
@@ -684,21 +684,21 @@ void lastTankStanding::disableMovement()
     bzdb_tankSpeed    = bz_getBZDBDouble("_tankSpeed");
 
     // Disable movement and shooting
-    bz_setBZDBDouble("_gravity", -1000.000000);
-    bz_setBZDBDouble("_jumpVelocity", 0.000000);
-    bz_setBZDBDouble("_reloadTime", 0.1);
-    bz_setBZDBDouble("_tankAngVel", 0.000001);
-    bz_setBZDBDouble("_tankSpeed", 0.000001);
+    bz_updateBZDBDouble("_gravity", -1000.000000);
+    bz_updateBZDBDouble("_jumpVelocity", 0.000000);
+    bz_updateBZDBDouble("_reloadTime", 0.1);
+    bz_updateBZDBDouble("_tankAngVel", 0.000001);
+    bz_updateBZDBDouble("_tankSpeed", 0.000001);
 }
 
 // Enable tanks to move and shoot again
 void lastTankStanding::enableMovement()
 {
-    bz_setBZDBDouble("_gravity", bzdb_gravity);
-    bz_setBZDBDouble("_jumpVelocity", bzdb_jumpVelocity);
-    bz_setBZDBDouble("_reloadTime", bzdb_reloadTime);
-    bz_setBZDBDouble("_tankAngVel", bzdb_tankAngVel);
-    bz_setBZDBDouble("_tankSpeed", bzdb_tankSpeed);
+    bz_updateBZDBDouble("_gravity", bzdb_gravity);
+    bz_updateBZDBDouble("_jumpVelocity", bzdb_jumpVelocity);
+    bz_updateBZDBDouble("_reloadTime", bzdb_reloadTime);
+    bz_updateBZDBDouble("_tankAngVel", bzdb_tankAngVel);
+    bz_updateBZDBDouble("_tankSpeed", bzdb_tankSpeed);
 }
 
 
@@ -747,7 +747,7 @@ void lastTankStanding::endRecording()
 
 void lastTankStanding::endGame()
 {
-    bz_setBZDBBool("_mapchangeDisable", false, 2);
+    bz_updateBZDBBool("_mapchangeDisable", false);
 
     isCountdownInProgress = false;
     isGameInProgress = false;
