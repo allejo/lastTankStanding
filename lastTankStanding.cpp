@@ -214,7 +214,7 @@ void lastTankStanding::Init(const char* commandLine)
 
     // Because the team swapping code is far from ideal, there are some issues with tanks moving as observers and getting
     // kicked, so we disable the speed checks
-    bz_setBZDBBool("_speedChecksLogOnly", true);
+    bz_updateBZDBBool("_speedChecksLogOnly", true);
 
     // Set some custom BZDB variables with default values
     kickTime        = bztk_registerCustomIntBZDB("_ltsKickTime", 60);
